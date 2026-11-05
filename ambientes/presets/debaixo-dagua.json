@@ -1,0 +1,8 @@
+{
+  "nome": "Debaixo d'água",
+  "descricao": "grave, ondulado, sem agudos — cartoon subaquático",
+  "ir": "",
+  "wet": 0,
+  "pre": "",
+  "pos": "lowpass=f=700,tremolo=f=0.6:d=0.35,bass=g=3"
+}

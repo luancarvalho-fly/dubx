@@ -1,0 +1,9 @@
+{
+    "nome":  "Quarto",
+    "descricao":  "cômodo pequeno com móveis — quase seco, som de \u0027dentro de casa\u0027",
+    "ir":  "quarto.wav",
+    "wet":  0.28,
+    "pre":  "",
+    "pos":  "",
+    "cena":  true
+}

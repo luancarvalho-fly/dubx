@@ -1,0 +1,9 @@
+{
+    "nome":  "Carro (dentro)",
+    "descricao":  "cabine estofada — seco, pequeno e abafado",
+    "ir":  "carro.wav",
+    "wet":  0.35,
+    "pre":  "",
+    "pos":  "lowpass=f=9000",
+    "cena":  true
+}

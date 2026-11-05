@@ -1,0 +1,15 @@
+{
+  "nome": "Só separar em stems",
+  "descricao": "Fala, música e efeitos em faixas separadas. NÃO divide por pessoa — não precisa de roteiro.",
+  "pede": [],
+  "passos": [
+    {
+      "tipo": "separar",
+      "titulo": "Separar em stems",
+      "params": {
+        "motor_diar": "nenhum",
+        "limpeza": "combinado"
+      }
+    }
+  ]
+}

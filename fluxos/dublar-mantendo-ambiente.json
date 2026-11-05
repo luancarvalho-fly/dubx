@@ -1,0 +1,46 @@
+{
+  "nome": "Dublar mantendo o ambiente",
+  "descricao": "Tira a fala de baixo da música, dubla SÓ a fala, e devolve a cama de fundo por cima. Evita a voz de IA seca.",
+  "pede": [
+    "origem",
+    "alvo"
+  ],
+  "passos": [
+    {
+      "tipo": "separar",
+      "titulo": "Tirar a fala da música",
+      "params": {
+        "motor_diar": "timbre",
+        "limpeza": "combinado",
+        "vozes": "1"
+      }
+    },
+    {
+      "tipo": "dublar",
+      "titulo": "Dublar só a fala",
+      "de": "voz1",
+      "params": {
+        "origem": "?origem",
+        "alvo": "?alvo"
+      }
+    },
+    {
+      "tipo": "juntar",
+      "titulo": "Devolver o ambiente",
+      "de": [
+        "@anterior",
+        "musica",
+        "efeitos"
+      ],
+      "params": {}
+    },
+    {
+      "tipo": "melhorar",
+      "titulo": "Nivelar",
+      "params": {
+        "dose": "50",
+        "lufs": "-16"
+      }
+    }
+  ]
+}

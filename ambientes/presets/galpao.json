@@ -1,0 +1,9 @@
+{
+    "nome":  "Galpão / Estacionamento",
+    "descricao":  "concreto oco — reverb médio com corpo",
+    "ir":  "galpao.wav",
+    "wet":  0.5,
+    "pre":  "highpass=f=80",
+    "pos":  "",
+    "cena":  true
+}

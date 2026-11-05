@@ -1,0 +1,18 @@
+{
+  "nome": "Separar por personagem",
+  "descricao": "Uma faixa por pessoa, mais música e efeitos. Precisa do roteiro — é ele que diz quem fala o quê.",
+  "pede": [
+    "roteiro"
+  ],
+  "passos": [
+    {
+      "tipo": "separar",
+      "titulo": "Separar por personagem",
+      "params": {
+        "motor_diar": "roteiro",
+        "limpeza": "combinado",
+        "roteiro": "?roteiro"
+      }
+    }
+  ]
+}

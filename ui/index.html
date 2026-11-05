@@ -1,0 +1,2590 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>DUBX</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root{
+    /* paleta de superficie do DECUPZ */
+    --bg:#0e0e11; --card:#17171b; --elevated:#212127; --elevated-2:#2b2b33;
+    --hairline:rgba(255,255,255,.07); --hairline-forte:rgba(255,255,255,.14);
+    --text:#ececf0; --muted:#9a9aa3; --faint:#6c6c76; --disabled:#5b5b63;
+    --accent:#30d158; --danger:#ff453a; --header:#8e8e97;
+    /* tema por feature (o mesmo do painel): --accent troca em runtime,
+       --sobre e o texto sobre a cor, --wash a lavagem de fundo.
+       --ok e o VERDE FIXO de sucesso (nunca vira a cor do modo). */
+    --sobre:#06230f; --wash:rgba(48,209,88,.10); --ok:#30d158;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"SF Pro Text","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    font-size:12.5px; line-height:1.5; -webkit-font-smoothing:antialiased;
+    min-height:100vh; padding:24px 24px 32px;
+    /* comeca no TOPO. Centralizar na vertical abria um buraco feio acima do
+       titulo quando a janela era mais alta que o conteudo. */
+    display:flex; justify-content:center; align-items:flex-start;
+  }
+  .app{width:100%; max-width:460px; display:flex; flex-direction:column; gap:11px}
+
+  .topo{display:flex; flex-direction:column; gap:3px; margin-bottom:4px}
+  .marca{font-size:26px; font-weight:600; letter-spacing:-.025em; line-height:1.1}
+  .sub{font-size:12px; color:var(--header)}
+
+  .cartao{background:var(--card); border:1px solid var(--hairline); border-radius:14px; padding:13px 14px}
+  .rotulo{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:9px}
+
+  /* CAMPOS: mesma metrica do painel — 38px de altura e raio = metade
+     (pilula). Textarea e caixa alta: raio de campo, altura livre. */
+  /* campo DECUPZ: 34px, raio 9, fonte 11.5, borda transparente e anel
+     suave no foco (aqui é Chrome de verdade: box-shadow funciona) */
+  select,textarea,input[type=text],input[type=password],input[type=number]{
+    width:100%; height:31px; background:var(--elevated); color:var(--text);
+    border:1px solid transparent; border-radius:9px;
+    padding:0 10px; font-family:inherit; font-size:11.5px; outline:none;
+  }
+  select:focus,textarea:focus,input:focus{border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--wash)}
+  textarea{resize:vertical; height:auto; min-height:76px; line-height:1.45;
+           padding:7px 10px; border-radius:9px}
+
+  /* ---- HERÓI + POPUP DE MODOS (clone do painel, 25/08) ----
+     As .aba continuam sendo .aba: o JS do app varre querySelectorAll(".aba"),
+     le data-modo e marca .on. Aqui elas so mudam de roupa e de lugar. */
+  .logo-linha{display:flex; align-items:center; margin-bottom:2px}
+  .bolinha{width:7px; height:7px; border-radius:4px; background:var(--ok);
+           margin-right:7px}
+  .logo-nome{font-size:15px; font-weight:700; letter-spacing:-.01em}
+  .heroi{position:relative; background:var(--card); border:1px solid var(--hairline);
+         border-radius:14px; padding:13px 14px}
+  .modo-picker{display:flex; align-items:center; cursor:pointer; user-select:none;
+               border:1px solid rgba(0,0,0,0); border-radius:15px;
+               padding:2px 4px; margin:0 -4px}
+  .modo-nome{flex:0 0 auto; font-size:22px; font-weight:700; color:var(--accent);
+             letter-spacing:-.02em; line-height:1.2}
+  .modo-chev{flex:0 0 auto; color:var(--muted); font-size:13px; margin-left:8px}
+  .modo-picker:hover .modo-chev{color:var(--text)}
+  .modo-desc{font-size:11.5px; color:var(--muted); margin-top:3px}
+  .abas{position:absolute; top:100%; left:0; width:240px; z-index:55;
+        margin-top:6px; background:var(--card);
+        border:1px solid rgba(255,255,255,.22); border-radius:14px; padding:6px;
+        display:block}
+  .abas.oculto{display:none !important}
+  .aba{display:flex; align-items:center; border-radius:10px; padding:9px 10px;
+       cursor:pointer; color:var(--text); font-size:12px; font-weight:600;
+       user-select:none; transition:background .12s}
+  .aba:hover{background:var(--elevated)}
+  .aba.on{background:var(--wash)}
+  .mi-ponto{width:7px; height:7px; border-radius:4px; margin-right:9px;
+            flex:0 0 auto}
+
+  /* ENGRENAGEM + POPOVER DE AJUSTES (clone do painel). O #espacoCard
+     continua sendo <details> — o JS depende do evento toggle e do .open;
+     aqui ele so muda de lugar e de roupa: o <summary> vira o icone. */
+  .heroi-topo{display:flex; align-items:flex-start}
+  .heroi-topo .modo-picker{flex:1}
+  #espacoCard{position:static; background:transparent; border:none;
+              border-radius:0; padding:0; flex:0 0 auto}
+  #espacoCard > summary{width:28px; height:26px; line-height:26px; padding:0;
+              text-align:center; font-size:14px; color:var(--muted);
+              border:none; cursor:pointer; list-style:none}
+  #espacoCard > summary::before{content:none}
+  #espacoCard > summary::-webkit-details-marker{display:none}
+  #espacoCard > summary:hover{color:var(--text)}
+  #espacoCard[open] > summary{color:var(--accent); border-bottom:none}
+  #espacoCard #espResumo{display:none}          /* o resumo vive no corpo */
+  #espacoCard > .corpo{position:absolute; top:100%; left:0; right:0;
+              margin-top:6px; z-index:60; background:var(--card);
+              border:1px solid rgba(255,255,255,.22); border-radius:16px;
+              padding:16px}
+  /* o token dentro do popover: sem moldura propria, como no painel */
+  #espacoCard #cartaoToken{background:transparent; border:none;
+              border-radius:0; padding:16px 0 0; margin-top:14px;
+              border-top:1px solid var(--hairline)}
+
+  .solta{border:1px dashed rgba(255,255,255,.13); border-radius:12px; background:var(--card);
+         padding:30px 16px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s}
+  .solta:hover,.solta.sobre{border-color:var(--accent); background:var(--elevated)}
+  .solta .t{font-size:13px; color:var(--text)}
+  .solta .s{font-size:11px; color:var(--muted); margin-top:3px}
+  .solta.cheio{border-style:solid; border-color:var(--hairline)}
+
+  .ctrl{display:flex; align-items:center; gap:12px; padding:9px 0}
+  .ctrl + .ctrl{border-top:1px solid var(--hairline)}
+  .ctrl .n{flex:0 0 84px; font-size:12px}
+  .ctrl .d{flex:0 0 auto; font-size:11px; color:var(--muted); min-width:30px; text-align:right;
+           font-variant-numeric:tabular-nums}
+  input[type=range]{flex:1; -webkit-appearance:none; height:3px; border-radius:2px;
+                    background:rgba(255,255,255,.13); outline:none}
+  /* slider: trilho verde FIXO (as "paradas de mexer" nunca viram a cor
+     do modo — decisao de 24/08) e polegar branco */
+  input[type=range]{background:linear-gradient(var(--ok),var(--ok)) no-repeat,
+                    rgba(255,255,255,.13)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:15px; height:15px;
+    border-radius:8px; background:#ececf0; cursor:pointer}
+  .dica{font-size:10.5px; color:var(--faint); margin-top:7px; line-height:1.45}
+  /* ROTULO DE CAMPO = .field-label do DECUPZ (10.5px, --faint, minuscula,
+     5px acima do campo). Antes o app usava .rotulo aqui — que e TITULO
+     de card, em caixa alta: "NOME DA VOZ" gritado em cima de um campo
+     vazio. E o que ele apontou nos prints. */
+  .vzitem{display:flex; align-items:center; gap:6px; padding:6px 0;
+          border-top:1px solid var(--hairline)}
+  .vznome{flex:1; font-size:11.5px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+  .vzmarca{font-size:9.5px; color:var(--faint)}
+  .hbt{width:26px; height:24px; line-height:22px; text-align:center; font-size:12px;
+       color:var(--muted); cursor:pointer; border:1px solid var(--hairline);
+       border-radius:7px; flex:0 0 auto}
+  .hbt:hover{color:var(--text); border-color:var(--hairline-forte)}
+  .rot-campo{font-size:10.5px; color:var(--faint); letter-spacing:.01em;
+             margin:12px 0 5px}
+  .rot-campo.topo{margin-top:0}
+  /* subtitulo do card = .card-sub do DECUPZ */
+  .rotulo.colado{margin-bottom:3px}
+  .rotulo-sub{font-size:10.5px; color:var(--faint); font-weight:500;
+              letter-spacing:0; line-height:1.45; margin-bottom:10px;
+              text-transform:none}
+
+  details{background:var(--card); border:1px solid var(--hairline); border-radius:16px; padding:0 16px}
+  summary{cursor:pointer; padding:12px 0; font-size:12px; color:var(--muted); list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"›"; display:inline-block; margin-right:7px; transition:transform .15s}
+  details[open] summary::before{transform:rotate(90deg)}
+  details[open] summary{border-bottom:1px solid var(--hairline)}
+  details .corpo{padding:4px 0 12px}
+  /* o Avançado vive dentro do cartão de Ajustes: sem moldura própria */
+  #controles details{background:transparent; border:none; border-radius:0; padding:0;
+                     border-top:1px solid var(--hairline); margin-top:8px}
+  #controles details summary{padding:10px 0 0}
+  #controles details[open] summary{border-bottom:none; padding-bottom:6px}
+  #controles #controlesLista:empty + details{border-top:none; margin-top:0}
+  #controles #controlesLista:empty + details summary{padding-top:0}
+
+  /* PADRAO DE CURVATURA: raio = METADE DA ALTURA (pilula) */
+  .acao{width:100%; height:40px; padding:0 14px; border:none; border-radius:10px;
+        background:var(--accent);
+        color:var(--sobre); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer;
+        transition:opacity .12s}
+  .acao:hover{opacity:.9}
+  .acao:disabled{background:var(--elevated); color:var(--disabled); cursor:default}
+
+  /* CANCELAR (20/09/2026). Ate esse dia o DUBX nao tinha como parar um
+     trabalho: o /api/parar so calava o som da previa. Ele mandou uma legenda
+     sem querer, o separador tomou a GPU inteira (99%, 11,2 dos 12,2 GB) e o
+     PC travou — a unica saida era matar o processo na mao. Fica em vermelho
+     de contorno: pesa menos que o Gerar, mas nao se esconde. */
+  .acao.perigo{margin-top:8px; background:transparent; color:var(--danger);
+               border:1px solid var(--danger)}
+  .acao.perigo:hover{background:rgba(255,69,58,.10); opacity:1}
+
+  /* Botao secundario. Existe porque botao sem classe cai no estilo do
+     navegador (caixa branca quadrada) e destoa de tudo — foi o que aconteceu
+     com o "tudo" do trecho. */
+  .ghost{height:30px; padding:0 10px; background:transparent; color:var(--muted);
+         border:1px solid var(--hairline); border-radius:8px;
+         font-family:inherit; font-size:10.5px; font-weight:700; cursor:pointer; white-space:nowrap;
+         transition:background .12s,border-color .12s,color .12s}
+  .ghost:hover{background:rgba(255,255,255,.04); color:var(--text);
+               border-color:var(--hairline-forte)}
+  .ghost:active{background:var(--card)}
+
+  /* Segmentado (Antes/Depois, doses, presets): trilho escuro com a pilula
+     verde correndo por dentro. Mesmo desenho das abas do topo. */
+  /* segmentado fecha em 38px como os campos: 1+3+30+3+1 */
+  /* segmentado ENXUTO (25/08): 32px no total — 1+2+26+2+1 */
+  .seg{display:flex; gap:2px; background:var(--elevated); border:1px solid transparent;
+       border-radius:9px; padding:2px}
+  .seg button{flex:1; height:26px; text-align:center; padding:0 4px; border:none;
+              border-radius:7px;
+              background:transparent; color:var(--muted); font-family:inherit; font-size:11.5px;
+              font-weight:600; cursor:pointer; transition:background .12s,color .12s}
+  .seg button:hover{color:var(--text)}
+  .seg button.ativa{background:var(--accent); color:var(--sobre)}
+
+  /* SELETOR DE NIVEL DO TREINO (24/08). Cada opcao carrega o custo na
+     propria cara — ele decide olhando, sem precisar decorar. */
+  .niveis{display:flex; gap:6px; margin-top:2px}
+  .nivel{flex:1; text-align:center; padding:9px 6px; border-radius:10px;
+         background:var(--elevated); border:1px solid transparent;
+         cursor:pointer; user-select:none}
+  .nivel:hover{border-color:var(--hairline-forte)}
+  .nivel.on{background:var(--wash); border-color:var(--accent)}
+  .nivel-n{font-size:11.5px; font-weight:700; color:var(--text)}
+  .nivel-t{font-size:10.5px; color:var(--faint); margin-top:2px}
+  .nivel.on .nivel-t{color:var(--accent)}
+
+  .saida{display:none; flex-direction:column; gap:10px}
+  .saida.on{display:flex}
+  audio{display:none}
+  .tocador{display:flex; align-items:center; gap:10px}
+  .play{flex:0 0 34px; width:34px; height:34px; border-radius:17px; border:none;
+        background:var(--accent); color:var(--sobre); font-size:11px; cursor:pointer;
+        display:flex; align-items:center; justify-content:center; padding:0}
+  .play:hover{opacity:.9}
+  #onda{flex:1; min-width:0; height:56px; cursor:pointer}
+  .tempo{flex:0 0 auto; font-size:10.5px; color:var(--muted);
+         font-variant-numeric:tabular-nums}
+  #video{width:100%; max-height:280px; background:#000; border-radius:10px; display:block}
+  #cartaoTrecho .num{width:58px}
+  #cartaoTrecho .nome-ctrl{flex:0 0 auto}
+
+  /* faixa de corte estilo iPhone — mesma do TANDERA, aqui no verde do DUBX */
+  /* tudo aqui tem tamanho FIXO de propósito: durante o arraste esses textos
+     mudam a cada pixel, e qualquer um deles crescendo empurra o card inteiro
+     (era isso o "site tremendo todo", 16/08) */
+  .faixa-info{display:flex; justify-content:space-between; align-items:baseline;
+              font-size:11px; color:var(--muted); margin-bottom:8px;
+              font-variant-numeric:tabular-nums; white-space:nowrap}
+  .faixa-info b{color:var(--text); font-weight:600; display:inline-block; min-width:52px}
+  .faixa-info .meio{color:var(--text); font-weight:600; font-size:12px;
+                    min-width:118px; text-align:center}
+  #trDica{min-height:34px}      /* 2 linhas reservadas: a dica troca de texto */
+  .trim-ctrl{display:flex; align-items:center; gap:8px; margin-top:12px}
+  .trim-ctrl .espaco{flex:1}
+  .trim-ctrl .nome-ctrl{flex:0 0 auto; font-size:11px; color:var(--muted)}
+  .trim-ctrl .num{flex:0 0 66px; width:66px; padding:8px 6px}
+  .trim-ctrl .play{flex:0 0 30px; width:30px; height:30px; font-size:10px}
+  .trim-caixa{padding:4px 0}
+  .tira{position:relative; height:60px; border-radius:11px; background:#000;
+        cursor:pointer; touch-action:none; user-select:none}
+  .tira canvas{position:absolute; inset:0; width:100%; height:100%; border-radius:11px}
+  .sombra{position:absolute; top:0; bottom:0; background:rgba(16,16,18,.75); pointer-events:none}
+  .sombra.esq{left:0; border-radius:11px 0 0 11px}
+  .sombra.dir{right:0; border-radius:0 11px 11px 0}
+  .quadro{position:absolute; top:-3px; bottom:-3px; box-sizing:border-box;
+          border:3px solid var(--accent); border-left-width:18px; border-right-width:18px;
+          border-radius:11px; pointer-events:none}
+  .chev{position:absolute; top:50%; transform:translateY(-50%); width:18px; text-align:center;
+        color:var(--sobre); font-size:14px; font-weight:800; line-height:1; pointer-events:none}
+  .chev.esq{left:-18px}
+  .chev.dir{right:-18px}
+  .alca{position:absolute; top:-6px; bottom:-6px; width:30px; cursor:ew-resize}
+  .agulha{position:absolute; top:-8px; bottom:-4px; width:3px; border-radius:2px;
+          background:#fff; pointer-events:none; box-shadow:0 0 5px rgba(0,0,0,.85); display:none}
+  .agulha::before{content:""; position:absolute; top:-2px; left:50%;
+                  transform:translateX(-50%) rotate(45deg); width:8px; height:8px;
+                  background:#fff; border-radius:2px}
+  .zoomLinha{display:flex; align-items:center; gap:10px; margin-top:14px}
+  .zoomLinha .zi{font-size:12px; color:var(--muted); flex:0 0 auto; line-height:1}
+  .zoomLinha .zjanela{flex:0 0 auto; font-size:10.5px; color:var(--muted);
+        font-variant-numeric:tabular-nums; min-width:74px; text-align:right}
+  .ab{display:none; align-items:center; gap:10px}
+  .ab.on{display:flex}
+  .igualar{flex:0 0 auto; display:flex; align-items:center; gap:5px;
+           font-size:10.5px; color:var(--muted); cursor:pointer; user-select:none}
+  .igualar input{accent-color:var(--accent); margin:0}
+  .linha{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .arq{font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  a.baixar{font-size:12px; color:var(--accent); text-decoration:none}
+
+  .aviso{font-size:12px; padding:10px 14px; border-radius:14px; display:none}
+  .aviso.on{display:block}
+  /* faltava: baixarTudo chama mostrar("ok",…) e o aviso saia sem pele */
+  .aviso.ok{background:rgba(48,209,88,.10); color:#9be8ae;
+            border:1px solid var(--ok)}
+  .aviso.erro{background:rgba(255,69,58,.1); color:var(--danger); border:1px solid rgba(255,69,58,.25)}
+  .aviso.info{background:var(--elevated); color:var(--muted); border:1px solid var(--hairline)}
+  .oculto{display:none !important}
+
+  /* REGISTRO (clone do painel): so a palavra + setinha, na cor do fundo */
+  .registro-linha{display:flex; align-items:center; padding:10px 4px;
+                  cursor:pointer; border-radius:8px; user-select:none}
+  .registro-linha:hover{background:rgba(255,255,255,.03)}
+  .secao-tit{flex:1; font-size:10px; font-weight:600; letter-spacing:.06em;
+             color:var(--header)}
+  .secao-chev{flex:0 0 auto; color:var(--muted); font-size:11px}
+  #log{background:var(--card); border:1px solid var(--hairline);
+       border-radius:14px; padding:12px 14px; font-family:Consolas,monospace;
+       font-size:11px; line-height:1.6; color:var(--muted);
+       max-height:220px; overflow:auto}
+  #log .lerro{color:var(--danger)}
+  #log .lok{color:var(--ok)}
+  /* o Avançado deixou de ser <details>: sem moldura, so a lista */
+  #avancado{border-top:1px solid var(--hairline); margin-top:10px;
+            padding-top:4px}
+
+  .hist{display:flex; align-items:center; gap:10px; padding:8px 0}
+  .hist + .hist{border-top:1px solid var(--hairline)}
+  .hist .arq{flex:1}
+  .hist .quando{flex:0 0 auto; font-size:10.5px; color:var(--muted);
+                font-variant-numeric:tabular-nums}
+  .hist a{flex:0 0 auto}
+  .hist .morto{font-size:10.5px; color:var(--disabled)}
+
+  /* mesa de mistura do Separar: uma linha por faixa, tudo no tempo do vídeo */
+  #mixer{display:none; flex-direction:column; gap:0; margin-top:12px;
+         border-top:1px solid var(--hairline); padding-top:10px}
+  #mixer.on{display:flex}
+  .faixa{display:flex; align-items:center; gap:9px; padding:9px 0}
+  .faixa + .faixa{border-top:1px solid var(--hairline)}
+  .faixa .cabeca{flex:0 0 118px; display:flex; flex-direction:column; gap:4px; min-width:0}
+  .faixa input.nome{width:100%; height:26px; background:var(--elevated); color:var(--text);
+        border:1px solid var(--hairline); border-radius:13px; padding:0 10px;
+        font-family:inherit; font-size:11.5px; outline:none}
+  .faixa input.nome:focus{border-color:var(--accent)}
+  .faixa .bts{display:flex; gap:4px}
+  .faixa .bt{flex:0 0 26px; height:22px; border-radius:11px; border:1px solid var(--hairline);
+        background:var(--elevated); color:var(--muted); font-family:inherit; font-size:10.5px;
+        font-weight:700; cursor:pointer; padding:0; line-height:1}
+  .faixa .bt.on{background:var(--accent); color:var(--sobre); border-color:var(--accent)}
+  .faixa .bt.mudo.on{background:var(--danger); border-color:var(--danger); color:#2a0603}
+  .faixa canvas{flex:1; min-width:0; height:42px; border-radius:12px;
+        background:#141416; cursor:pointer; display:block}
+  .faixa .baixa{flex:0 0 auto; display:flex; flex-direction:column; gap:3px}
+  .faixa .baixa a{font-size:10.5px; color:var(--accent); text-decoration:none; white-space:nowrap}
+  .faixa.calada canvas{opacity:.32}
+  .mixDica{font-size:11px; color:var(--muted); padding-top:8px;
+           border-top:1px solid var(--hairline); margin-top:2px}
+  /* GERACOES (07/10): o menu gruda na ESQUERDA e as geracoes do Separar
+     ficam em grade na direita — pra comparar motor contra motor sem abrir
+     uma por vez no Historico. Cada cartao tem o proprio video e mesa. */
+  body.com-geracoes{justify-content:flex-start; gap:22px}
+  body.com-geracoes .app{flex:0 0 460px}
+  #geracoes{flex:1; min-width:0; display:none; flex-direction:column; gap:11px}
+  body.com-geracoes #geracoes{display:flex}
+  #geracoes .ger-topo{display:flex; align-items:baseline; gap:10px; padding:2px 2px 0}
+  #geracoes .ger-topo .rotulo{margin:0}
+  #geracoes .ger-topo .dica{margin:0}
+  #gerGrade{display:grid; grid-template-columns:repeat(auto-fill, minmax(380px, 1fr)); gap:11px}
+  .ger{display:flex; flex-direction:column; gap:8px}
+  .ger .ger-cab{display:flex; align-items:center; gap:8px; min-width:0}
+  .ger .ger-feat{flex:0 0 auto; font-size:10.5px; font-weight:700; letter-spacing:.06em;
+        text-transform:uppercase; color:var(--sobre); background:var(--accent);
+        border-radius:9px; padding:1px 8px}
+  .ger .ger-modelo{flex:0 0 auto; font-size:11.5px; font-weight:600; color:var(--accent)}
+  .ger .ger-x{flex:0 0 22px; height:22px; border-radius:11px; border:1px solid var(--hairline);
+        background:var(--elevated); color:var(--muted); font-size:11px; line-height:1;
+        cursor:pointer; padding:0}
+  .ger .ger-x:hover{color:var(--text); border-color:var(--hairline-forte)}
+  .ger .ger-nome{flex:1; min-width:0; font-size:11.5px; color:var(--muted);
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .ger .ger-quando{flex:0 0 auto; font-size:10.5px; color:var(--faint);
+        font-variant-numeric:tabular-nums}
+  .ger video{width:100%; border-radius:10px; background:#000; display:block; max-height:240px}
+  .ger .faixa{padding:6px 0}
+  .ger .faixa .cabeca{flex:0 0 96px}
+  .ger .faixa .nomeF{font-size:11.5px; color:var(--text); white-space:nowrap;
+        overflow:hidden; text-overflow:ellipsis}
+  .ger .faixa canvas{height:34px}
+  /* 05/11: reconstrucao ao vivo do Melhorar — uma faixa so, o slider embaixo mexe enquanto toca */
+  .ger .ger-recon{display:flex; align-items:center; gap:10px; padding:2px 2px 0}
+  .ger .ger-recon .rot{flex:0 0 auto; font-size:11.5px; color:var(--muted)}
+  .ger .ger-recon input{flex:1; min-width:0; accent-color:var(--accent)}
+  .ger .ger-recon .val{flex:0 0 44px; text-align:right; font-size:11.5px; font-weight:600;
+        color:var(--accent); font-variant-numeric:tabular-nums}
+  .ger .ger-recon .est{flex:0 0 64px; font-size:10.5px; color:var(--faint)}
+  @media (max-width: 1000px){
+    body.com-geracoes{flex-wrap:wrap}
+    body.com-geracoes .app{flex:1 1 100%}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="logo-linha">
+    <div class="bolinha"></div>
+    <div class="logo-nome">DUBX</div>
+  </div>
+
+  <div class="heroi">
+    <div class="heroi-topo">
+      <div class="modo-picker" id="modoPicker">
+        <div class="modo-nome" id="modoNome">Melhorar</div>
+        <div class="modo-chev" id="modoChev">▾</div>
+      </div>
+      <!-- AJUSTES: o mesmo <details> de sempre (o JS usa toggle/.open),
+           agora morando aqui como popover da engrenagem -->
+      <details id="espacoCard">
+        <summary title="ajustes: faxina, cache, transcrição e token">⚙</summary>
+        <div class="corpo">
+          <div class="rotulo">FAXINA E CACHE</div>
+          <div class="dica">Os trabalhos deixam arquivos de passagem na pasta de
+            trabalho. O que está no Histórico ou no cache nunca entra na faxina.</div>
+          <div class="ctrl">
+            <div class="n">Passagens acumuladas</div>
+            <div class="d" id="espLixo">medindo…</div>
+            <button class="ghost" id="espFaxina" style="margin-left:10px">Limpar</button>
+          </div>
+          <div class="ctrl">
+            <div class="n">Faxina automática</div>
+            <label style="flex:1;display:flex;align-items:center;gap:8px">
+              <input type="checkbox" id="espAuto">
+              <span class="dica" style="margin:0">apagar as passagens de cada
+                trabalho assim que ele termina</span>
+            </label>
+          </div>
+          <div class="ctrl">
+            <div class="n">Teto do cache</div>
+            <input type="number" id="espTeto" min="0.5" max="50" step="0.5"
+                   style="width:70px" value="3">
+            <div class="d">GB</div>
+          </div>
+          <div class="dica">O cache é o que faz “refazer só a última etapa” de um
+            fluxo voltar em segundos. Ao estourar o teto, o mais velho sai primeiro
+            — o trabalho recente fica sempre.</div>
+
+          <div class="rot-campo">Minhas vozes</div>
+          <div id="vozesConfig"></div>
+          <div class="dica">Apagar tira a voz do PC inteiro: biblioteca, treino e ajuste fino.</div>
+
+          <div class="ctrl" style="margin-top:14px">
+            <div class="n">Transcrição própria</div>
+            <label style="flex:1;display:flex;align-items:center;gap:8px"
+                   title="Ligado: o DUBX usa o Whisper LARGE dele, sem depender do OpenWhispr. Desligado: pega carona no servidor do OpenWhispr quando ele está aberto — mais rápido, porém com o modelo que estiver escolhido LÁ.">
+              <input type="checkbox" id="espWhisper">
+              <span class="dica" style="margin:0">usar o Whisper <b>Large</b> próprio,
+                sem herdar o modelo do OpenWhispr</span>
+            </label>
+          </div>
+          <div class="dica">Deixe LIGADO para o ditado continuar rápido no turbo e a
+            dublagem sair boa no Large. Desligar é mais rápido, mas a
+            qualidade passa a depender do que estiver marcado no OpenWhispr.</div>
+
+          <!-- TOKEN DO HF: mora aqui, como no painel (25/08) -->
+          <div class="cartao oculto" id="cartaoToken">
+            <div class="rotulo">Token do Hugging Face <span id="tokEstado" class="dica" style="margin:0"></span></div>
+            <div class="linha" style="margin-top:0">
+              <input id="tokValor" type="password" placeholder="hf_…" autocomplete="off" style="flex:1">
+              <button class="ghost" id="tokSalvar">Salvar</button>
+            </div>
+            <div class="dica">
+              <b>Só a pyannote precisa disto.</b> O token novo entra sempre por
+              este campo — nunca pelo chat, nunca pelo terminal.<br>
+              Crie em huggingface.co → Settings → Access Tokens (tipo <b>Read</b>)
+              e aceite as condições de <b>pyannote/speaker-diarization-3.1</b> e
+              <b>pyannote/segmentation-3.0</b>.
+            </div>
+          </div>
+          <div class="dica" id="espResumo" style="margin-top:10px"></div>
+        </div>
+      </details>
+    </div>
+    <div class="modo-desc" id="modoDesc">nivela e reconstrói a voz com o Sidon</div>
+
+    <!-- as .aba de sempre, agora dentro do popup: o JS do app varre
+         .aba, le data-modo e marca .on — nada mudou pra ele -->
+    <div class="abas oculto" id="modoLista">
+      <div class="aba on" data-modo="melhorar"><span class="mi-ponto"></span>Melhorar</div>
+      <div class="aba" data-modo="trocar"><span class="mi-ponto"></span>Trocar voz</div>
+      <div class="aba" data-modo="separar"><span class="mi-ponto"></span>Separar</div>
+      <div class="aba" data-modo="treinar"><span class="mi-ponto"></span>Treinar</div>
+      <div class="aba" data-modo="dublar"><span class="mi-ponto"></span>Dublar</div>
+      <div class="aba" data-modo="falar"><span class="mi-ponto"></span>Falar</div>
+    </div>
+  </div>
+
+  <div class="cartao oculto" id="zonaNome">
+    <div class="rot-campo topo">Nome da voz</div>
+    <input type="text" id="nomeVoz" placeholder="ex.: TOM" autocomplete="off">
+    <div class="dica">Vai aparecer na lista dos outros modos quando terminar.</div>
+  </div>
+
+  <div class="cartao oculto" id="zonaNivel">
+    <div class="rotulo colado">ATÉ ONDE IR</div>
+    <div class="rotulo-sub">quanto mais fundo, melhor a cópia — e mais demorado</div>
+    <div class="niveis">
+      <div class="nivel" data-nivel="rapida">
+        <div class="nivel-n">Rápida</div><div class="nivel-t">na hora</div>
+      </div>
+      <div class="nivel on" data-nivel="boa">
+        <div class="nivel-n">Boa</div><div class="nivel-t">~5 min</div>
+      </div>
+      <div class="nivel" data-nivel="maxima">
+        <div class="nivel-n">Máxima</div><div class="nivel-t">horas</div>
+      </div>
+    </div>
+    <div class="dica" id="dicaNivel"></div>
+    <div class="oculto" id="zonaAmostra">
+      <div class="rot-campo">Qual arquivo é a amostra</div>
+      <select id="amostra"></select>
+      <div class="dica">A amostra é a “foto” que o motor olha pra saber como a voz
+        soa. Ele lê os <b>primeiros 25 segundos</b> dela — então escolha um
+        arquivo que comece com fala limpa, sem música e sem silêncio na frente.
+        O resto do material continua sendo usado no treino.</div>
+    </div>
+  </div>
+
+  <div class="cartao" id="cartaoVoz">
+    <div class="rot-campo topo">Voz</div>
+    <select id="voz"></select>
+    <div class="dica" id="dicaVoz"></div>
+  </div>
+
+  <div id="zonaArquivo">
+    <div class="solta" id="solta">
+      <div class="t" id="soltaT">Arraste o áudio ou vídeo aqui</div>
+      <div class="s" id="soltaS">ou clique para escolher</div>
+    </div>
+    <input type="file" id="arquivo" class="oculto" accept="audio/*,video/*">
+  </div>
+
+  <div class="cartao oculto" id="cartaoTrecho">
+    <div class="rot-campo topo">Trecho — arraste as pontas pra usar só um pedaço</div>
+    <div class="faixa-info">
+      <span>Início <b id="tIni">0:00</b></span>
+      <span class="meio" id="tSel"></span>
+      <span>Fim <b id="tFim">—</b></span>
+    </div>
+    <div class="trim-caixa">
+      <div class="tira" id="tira">
+        <canvas id="tiraCanvas"></canvas>
+        <div class="sombra esq" id="sombraEsq"></div>
+        <div class="sombra dir" id="sombraDir"></div>
+        <div class="quadro" id="quadro">
+          <div class="chev esq">‹</div>
+          <div class="chev dir">›</div>
+        </div>
+        <div class="alca" id="alcaEsq"></div>
+        <div class="alca" id="alcaDir"></div>
+        <div class="agulha" id="agulha"></div>
+      </div>
+    </div>
+    <div class="zoomLinha">
+      <span class="zi">🔍</span>
+      <input type="range" id="zoom" min="0" max="100" value="0">
+      <span class="zjanela" id="zjanela"></span>
+    </div>
+    <div class="trim-ctrl">
+      <button id="trPlay" class="play" title="tocar o trecho">▶</button>
+      <span class="nome-ctrl">de</span>
+      <input id="trIni" class="num" type="text" value="0:00">
+      <span class="nome-ctrl">até</span>
+      <input id="trFim" class="num" type="text" value="0:00">
+      <span class="espaco"></span>
+      <button class="ghost" id="trTudo">tudo</button>
+    </div>
+    <div class="dica" id="trDica"></div>
+    <audio id="playerFonte"></audio>
+  </div>
+
+  <div class="cartao oculto" id="zonaTexto">
+    <div class="rot-campo topo">Texto</div>
+    <textarea id="texto" placeholder="Escreva o que a voz deve dizer…"></textarea>
+  </div>
+
+  <!-- Token do HuggingFace: aparece SO quando o motor escolhido precisa dele.
+       Ele nao opera terminal, entao o login mora aqui — e o valor nunca sai
+       daqui pro chat: o servidor so responde "configurado" ou nao. -->
+  <div class="cartao oculto" id="cartaoRoteiro">
+    <div class="rot-campo topo">Roteiro — quem fala o quê</div>
+    <!-- sem estilo inline: ele passava por cima da metrica do DECUPZ
+         (raio 10 e fonte 12 num campo que devia ser 9 e 11.5) -->
+    <textarea id="roteiroTxt" rows="6" placeholder="Plexus: Ô Pedaleira, tu já parou pra pensar…&#10;Pedaleira: Ah, sei lá, cara…&#10;Plexus: É porque é o cacete, rapaz."></textarea>
+    <div class="dica">Uma linha por fala, no formato <b>Personagem: fala</b>. No Fly X-tudio,
+      o botão <b>Copiar falas</b> já entrega assim. Não precisa estar perfeito — o casamento
+      aguenta o Whisper errar palavra.</div>
+  </div>
+
+  <!-- o cartão do token foi pro popover da engrenagem (25/08) -->
+
+  <div class="cartao" id="controles">
+    <div id="controlesLista"></div>
+
+    <!-- no painel nada fica escondido dentro do modo: o Avançado virou
+         parte da lista (25/08). O id fica: o CSS antigo some, o JS não usa. -->
+    <div id="avancado">
+      <!-- VOLUME ALVO NAO VALE NO TREINO (24/08): o modo_treinar do servidor
+           nao le p["lufs"] em linha nenhuma — a amostra e sempre nivelada em
+           -16 fixo. Deixar o controle ali era pedir pra ele girar um botao
+           que nao existe, e ele reclamou disso com razao. -->
+      <div id="zonaLufs">
+        <div class="ctrl">
+          <div class="n">Volume alvo</div>
+          <input type="range" id="lufs" min="-24" max="-10" step="1" value="-16">
+          <div class="d" id="dLufs">-16</div>
+        </div>
+        <div class="dica">−16 para faixa de voz. O vídeo montado mira −14.</div>
+      </div>
+      <div class="ctrl oculto" id="ctrlTom">
+        <div class="n">Tom</div>
+        <input type="range" id="tom" min="-12" max="12" step="1" value="0">
+        <div class="d" id="dTom">0</div>
+      </div>
+      <div class="ctrl oculto" id="ctrlF0">
+        <div class="n">Entonação</div>
+        <select id="f0" style="flex:1">
+          <option value="rmvpe">rmvpe — equilíbrio</option>
+          <option value="crepe">crepe — mais preciso, lento</option>
+          <option value="fcpe">fcpe — mais rápido</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <button class="acao" id="gerar">Gerar</button>
+  <button class="acao perigo" id="cancelar" hidden>Cancelar</button>
+
+  <div class="aviso" id="aviso"></div>
+
+  <div class="cartao saida" id="saida">
+    <div class="linha">
+      <div class="arq" id="nomeSaida"></div>
+      <a class="baixar" id="baixar" download>baixar</a>
+    </div>
+    <video id="video" class="oculto" controls playsinline></video>
+    <div class="tocador" id="tocador">
+      <button id="btPlay" class="play" title="tocar / pausar">▶</button>
+      <canvas id="onda"></canvas>
+      <div class="tempo" id="tempoOnda">0:00</div>
+    </div>
+    <div class="ab" id="ab">
+      <div class="seg" style="flex:1">
+        <button id="abAntes">Antes</button>
+        <button id="abDepois" class="ativa">Depois</button>
+      </div>
+      <label class="igualar" title="sem isso o mais alto sempre parece melhor">
+        <input type="checkbox" id="igualar" checked> volume igualado
+      </label>
+    </div>
+
+    <div id="mixer">
+      <div id="mixerFaixas"></div>
+      <div class="mixDica">
+        <b>M</b> muda · <b>S</b> deixa só essa · o play do vídeo toca todas juntas ·
+        clique na onda pra pular · o nome que você escrever é o nome do arquivo baixado.
+      </div>
+    </div>
+
+    <audio id="player"></audio>
+  </div>
+
+  <details id="histCard">
+    <summary>Histórico — tudo que você já gerou</summary>
+    <div class="corpo" id="histLista"><div class="dica">nada gerado ainda.</div></div>
+  </details>
+
+  <!-- Ajustes do DUBX agora moram no popover da engrenagem (25/08) -->
+
+  <div class="registro-linha" id="logCab">
+    <div class="secao-tit">REGISTRO</div>
+    <div class="secao-chev" id="logChev">▸</div>
+  </div>
+  <div id="log" class="oculto">pronto pra trabalhar.</div>
+
+</div>
+
+<aside id="geracoes">
+  <div class="ger-topo">
+    <div class="rotulo">GERAÇÕES</div>
+    <div class="dica">as últimas separações lado a lado · cada uma toca sozinha</div>
+  </div>
+  <div id="gerGrade"></div>
+</aside>
+
+<script>
+const $ = s => document.querySelector(s);
+
+/* cor viva do tema — o canvas nao enxerga CSS, entao sem isto a onda
+   tocada continuaria verde nos modos azul/roxo/laranja/vermelho */
+function corTema(nome) {
+  return getComputedStyle(document.documentElement)
+           .getPropertyValue(nome).trim() || "#30d158";
+}
+let modo = "melhorar", enviado = null, nomeEnviado = "", vozes = [], arquivosTreino = [];
+let NIVEL = "boa";   // rapida | boa | maxima  (o seletor de 24/08)
+
+/* O QUE CADA NIVEL FAZ. Escrito por extenso na tela de proposito: ele esta
+ * aprendendo o treino agora, e balao de repouso some quando mais precisa. */
+const NIVEIS = {
+  rapida: "Só guarda a amostra. Não treina nada — o motor padrão copia a voz "
+        + "na hora, olhando os 25 s da amostra. Serve pros personagens random: "
+        + "sai na hora e não gasta placa de vídeo.",
+  boa:    "Faz o motor padrão <b>estudar</b> a voz com todo o material que você "
+        + "soltou (uns 5 minutos). É o melhor custo-benefício — use este por "
+        + "padrão.",
+  maxima: "Tudo do <b>Boa</b> mais o fichário do RVC: horas de treino que guardam "
+        + "pedaços reais da voz. É o que pega mania de falar (língua presa, "
+        + "sotaque). Depois você escolhe o motor na hora de trocar a voz."
+};
+
+const CONTROLES = {
+  treinar: [
+    {id:"epocas", nome:"Épocas", min:10, max:600, passo:10, val:300,
+     dica:"Muito fiel ≈ 1h30 com ~5 min de material. Rápido (50) serve pra testar a voz antes de investir."}
+  ],
+  melhorar: [
+    {id:"dose", nome:"Reconstrução", min:0, max:100, passo:1, val:100, suf:"%",
+     dica:"0 só nivela o volume. 100 reconstrói a voz — use em gravação estragada."}
+  ],
+  trocar: [
+    {id:"preservar", nome:"Manter música e efeitos", tipo:"marcar", val:true,
+     dica:"Separa a voz da cama, troca SÓ a voz e devolve música e efeitos por cima — a regra da casa: voz nunca sai seca."},
+    {id:"puxar_tom", nome:"Puxar a altura", tipo:"marcar", val:false, so:"soSeed",
+     dica:"O Seed-VC troca o TIMBRE e mantém a ALTURA da fala que entra. Ligue quando a voz-alvo for muito mais grave ou mais aguda que a original (monstro, criança) — ele passa a usar o modelo com pitch e move a altura pra faixa da voz-alvo. Baixa um modelo na primeira vez e é mais lento."},
+    {id:"motor_vc", nome:"Motor", tipo:"escolha", val:"seedvc",
+     op:[["seedvc","Seed-VC (recomendado)","troca a voz a partir de uma amostra de 4 minutos e segue melhor a entonação original. O padrão da casa."],
+         ["rvc","RVC (treinado, 8 h)","o motor clássico: precisa de uma voz treinada por horas, mas libera os ajustes finos (Presença, Tom, Entonação…)."]],
+     dica:"Seed-VC ganhou o seu teste cego de 23/08: chegou em 217 Hz contra os 219 Hz do Plexus e corrompeu 1 palavra em 43. O RVC parou em 161 Hz (ele preserva a altura da voz de origem) e corrompeu 3. O Seed-VC também treina em 4 min contra 8 h do RVC. Use o RVC quando quiser MANTER a altura da voz original."},
+    {id:"sidon", nome:"Sidon", min:0, max:100, passo:5, val:100, suf:"%",
+     dica:"Acabamento depois da troca: 0 entrega o motor cru só nivelado, 100 reconstrói a voz inteira. Em 23/08 você achou o motor CRU mais natural que a produção — se a voz sair processada demais, baixe isto."},
+    {id:"presenca", nome:"Presença", min:0, max:.5, passo:.01, val:.15, so:"soRvc",
+     dica:"Protege consoante e respiração. Menor = protege mais.", inverso:true},
+    {id:"atuacao", nome:"Atuação", min:0, max:1, passo:.01, val:1, so:"soRvc",
+     dica:"1 mantém a dinâmica da sua gravação."},
+    {id:"semelhanca", nome:"Semelhança", min:0, max:1, passo:.01, val:.5,
+     dica:"Quanto puxa da voz-alvo. Vale nos dois motores: no RVC é quanto ele consulta o fichário; no Seed-VC é quanto a geração é puxada pra amostra. Alto demais gera artefato."}
+  ],
+  falar: [
+    {id:"atuacao", nome:"Atuação", min:0, max:1, passo:.05, val:.3,
+     dica:"Intensidade da emoção inventada pelo modelo."},
+    {id:"adesao", nome:"Semelhança", min:0, max:1, passo:.05, val:.5,
+     dica:"Quanto adere à referência da voz."}
+  ],
+  dublar: [
+    {id:"origem", nome:"Fala em", tipo:"escolha", val:"pt",
+     op:[["pt","Português"],["en","Inglês"],["es","Espanhol"],["fr","Francês"]],
+     dica:"O idioma que o áudio FALA hoje. Fixar dá resultado melhor que detectar."},
+    {id:"alvo", nome:"Dublar para", tipo:"escolha", val:"en",
+     op:[["en","Inglês"],["pt","Português"],["es","Espanhol"],["fr","Francês"]],
+     dica:"A voz do resultado é clonada do próprio arquivo — sem treinar nada. Cada frase é encaixada no tempo exato do original."},
+    {id:"atuacao", nome:"Atuação", min:0, max:1, passo:.05, val:.65,
+     dica:"Expressividade da fala. 0,65 é o doce pra dublagem."},
+    {id:"adesao", nome:"Cadência", min:0, max:1, passo:.05, val:.3,
+     dica:"Mais baixo = fala mais devagar e natural. 0,3 é o recomendado — subir deixa apressado."},
+    {id:"sidon", nome:"Sidon", min:0, max:100, passo:1, val:0, suf:"%",
+     dica:"Acabamento final: 0 entrega o TTS cru só nivelado, 100 reconstrói. Nasce em 0 de propósito — às vezes o Sidon tira a vida do áudio."}
+  ],
+  separar: [
+    {id:"motor_diar", nome:"Motor", tipo:"escolha", val:"roteiro",
+     op:[["roteiro","Por personagem, pelo roteiro (recomendado)","você cola o roteiro (Personagem: fala) e ele acerta quem fala o quê — funciona até com vozes iguais."],
+         ["nenhum","Não dividir por pessoa — só voz/música/efeitos","não divide por pessoa: entrega voz, música e efeitos, cada um na sua faixa."],
+         ["timbre","Por personagem, pelo timbre","divide por quem fala usando a diferença entre as vozes — precisa que sejam bem diferentes."],
+         ["pyannote","pyannote","reconhecedor clássico de quem fala. Precisa do token do Hugging Face (fica na engrenagem)."],
+         ["sortformer","Sortformer (uso pessoal)","reconhecedor da NVIDIA. A licença não permite uso comercial — por isso “uso pessoal”."],
+         ["mossformer2","MossFormer2 — vozes sobrepostas (cru)","separa duas vozes falando AO MESMO TEMPO. Saída crua em 16 kHz, sem limpar e sem Sidon — é pra ouvir o que o motor devolve."],
+         ["tiger","TIGER — vozes sobrepostas (cru)","separa duas vozes falando AO MESMO TEMPO. Saída crua em 16 kHz, sem limpar e sem Sidon — é pra ouvir o que o motor devolve."],
+         ["sam_risada","SAM Audio + risadas à parte (pra dublagem)","igual ao SAM Audio, mas antes tira as RISADAS pra uma faixa própria. A fala de cada um sai sem risada (vai pro ElevenLabs) e a faixa Risadas volta por cima depois. Mais lento."],
+         ["sam","SAM Audio — vozes sobrepostas, 48 kHz (cru)","o separador da Meta. Acha sozinho um pedacinho onde cada voz fala sozinha e puxa essa voz do arquivo inteiro. Sai em 48 kHz, crua. Mais lento (~1 min)."]],
+     dica:"Pelo roteiro acerta 100% mesmo quando os personagens têm a MESMA voz — é o caso do Seedance. Os outros três separam por timbre e só funcionam quando as vozes são de fato diferentes."},
+    {id:"vozes", nome:"Vozes", tipo:"escolha", val:"2",
+     op:[["2","2 pessoas"],["3","3 pessoas"],["4","4 pessoas"],
+         ["0","descobrir sozinho","ele estima quantas pessoas falam — bom quando você não sabe."]],
+     dica:"Quantas pessoas falam no arquivo. Diga o número quando souber — descobrir sozinho às vezes divide a mesma pessoa em duas."}
+  ]
+};
+
+/* ------------------------------------------------ espaco e cache (20/08) */
+async function cargaEspaco(){
+  try{
+    const cfg = await (await fetch("/api/config")).json();
+    $("#espTeto").value = cfg.cache_teto_gb;
+    $("#espAuto").checked = !!cfg.faxina_auto;
+    $("#espWhisper").checked = cfg.whisper_proprio !== false;
+  }catch(e){}
+  medeLixo();
+}
+async function medeLixo(){
+  try{
+    const j = await (await fetch("/api/lixo")).json();
+    $("#espLixo").textContent = j.arquivos + " arquivo(s) · " + j.mb + " MB";
+    $("#espResumo").textContent = j.mb > 0 ? "· " + j.mb + " MB de passagens" : "";
+  }catch(e){ $("#espLixo").textContent = "?"; }
+}
+async function salvaEspaco(){
+  try{
+    const corpo = {cache_teto_gb: parseFloat($("#espTeto").value),
+                   faxina_auto: $("#espAuto").checked,
+                   whisper_proprio: $("#espWhisper").checked};
+    const cfg = await (await fetch("/api/config", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(corpo)})).json();
+    // o servidor valida (0,5–50 GB): a tela mostra o que VALEU
+    $("#espTeto").value = cfg.cache_teto_gb;
+    $("#espAuto").checked = !!cfg.faxina_auto;
+    $("#espWhisper").checked = cfg.whisper_proprio !== false;
+    mostrar("info", "guardado — teto " + cfg.cache_teto_gb + " GB, faxina automática "
+            + (cfg.faxina_auto ? "ligada" : "desligada") + ", Whisper "
+            + (cfg.whisper_proprio !== false ? "próprio (Large)" : "do OpenWhispr"));
+  }catch(e){ mostrar("erro", "não deu pra salvar: " + e.message); }
+}
+$("#espTeto").addEventListener("change", salvaEspaco);
+$("#espAuto").addEventListener("change", salvaEspaco);
+$("#espWhisper").addEventListener("change", salvaEspaco);
+$("#espFaxina").addEventListener("click", async () => {
+  $("#espFaxina").disabled = true;
+  try{
+    const j = await (await fetch("/api/limpar-lixo", {method:"POST"})).json();
+    mostrar("info", "faxina: " + j.mb + " MB liberados.");
+  }catch(e){ mostrar("erro", "faxina falhou: " + e.message); }
+  $("#espFaxina").disabled = false;
+  medeLixo();
+});
+$("#espacoCard").addEventListener("toggle", () => {
+  if ($("#espacoCard").open) medeLixo();
+});
+cargaEspaco();
+
+async function estadoToken(){
+  try{
+    const j = await (await fetch("/api/hf-token")).json();
+    $("#tokEstado").textContent = j.tem ? "· configurado" : "· ainda não configurado";
+    $("#tokEstado").style.color = j.tem ? "var(--accent)" : "var(--muted)";
+    return j.tem;
+  }catch(e){ return false; }
+}
+
+/* O cartao do token so aparece pro motor que precisa (pyannote). Nao poluir a
+   tela de quem usa o motor local. */
+function atualizaCartaoToken(){
+  const el = $("#c_motor_diar");
+  const motor = el ? el.value : "";
+  // ANTES: so aparecia com motor === "pyannote". Em 20/08 ele precisou
+  // trocar o token e NAO ACHOU o campo — estava enterrado atras de um
+  // dropdown. Agora aparece na aba Separar inteira; a dica explica.
+  // 25/08: o token mora DENTRO da engrenagem, entao fica sempre la —
+  // esconde-lo por modo era o que fazia ele "sumir das configuracoes"
+  $("#cartaoToken").classList.remove("oculto");
+  $("#cartaoRoteiro").classList.toggle("oculto",
+    !(modo === "separar" && motor === "roteiro"));
+  estadoToken();
+}
+
+$("#tokSalvar").addEventListener("click", async () => {
+  const v = $("#tokValor").value.trim();
+  try{
+    const r = await fetch("/api/hf-token", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({token: v})});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.erro || "não deu pra salvar");
+    $("#tokValor").value = "";        // nao deixa o segredo na tela
+    await estadoToken();
+    mostrar("info", j.tem ? "token guardado — pode usar a pyannote"
+                          : "token apagado");
+  }catch(e){ mostrar("erro", e.message); }
+});
+
+function montarControles(){
+  // O "Avançado" mora DENTRO deste mesmo cartão (pedido de 16/08: card
+  // separado confundia), então só a lista de cima é redesenhada.
+  const alvo = $("#controlesLista"); alvo.innerHTML = "";
+  const lista = CONTROLES[modo] || [];
+  if (!lista.length){
+    $("#ctrlTom").classList.add("oculto");
+    $("#ctrlF0").classList.add("oculto");
+    return;
+  }
+  const par = ROTULO_MODO[modo] || ["AJUSTES", ""];
+  const rot = document.createElement("div");
+  rot.className = "rotulo" + (par[1] ? " colado" : "");
+  rot.textContent = par[0];
+  alvo.appendChild(rot);
+  if (par[1]) {
+    const sub = document.createElement("div");
+    sub.className = "rotulo-sub";
+    sub.textContent = par[1];
+    alvo.appendChild(sub);
+  }
+  lista.forEach(c => {
+    const l = document.createElement("div"); l.className = "ctrl";
+    if (c.dica) l.title = c.dica;   // balao ao repousar o mouse (pedido 23/08)
+    if (c.so) l.classList.add(c.so);          // some quando nao vale (so-RVC)
+    if (c.tipo === "marcar"){
+      // interruptor (ex.: "manter musica e efeitos" do Trocar)
+      l.innerHTML = `<div class="n">${c.nome}</div>
+        <label style="flex:1;display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="c_${c.id}"${c.val ? " checked" : ""}>
+          <span class="dica" style="margin:0">${c.dica || ""}</span>
+        </label>`;
+      alvo.appendChild(l);
+      return;                                  // a dica ja esta na linha
+    }
+    if (c.tipo === "escolha"){
+      l.innerHTML = `<div class="n">${c.nome}</div>
+        <select id="c_${c.id}" style="flex:1">` +
+        c.op.map(o => `<option value="${o[0]}"${o[0] === c.val ? " selected" : ""}` +
+                      (o[2] ? ` title="${o[2].replace(/"/g, "&quot;")}"` : "") +
+                      `>${o[1]}</option>`).join("") +
+        `</select>`;
+      alvo.appendChild(l);
+      if (c.id === "motor_diar"){
+        l.querySelector("select").addEventListener("change", () => {
+          atualizaCartaoToken(); ajustaSeparar();
+        });
+      }
+      if (c.id === "motor_vc"){
+        l.querySelector("select").addEventListener("change", ajustaTrocar);
+      }
+    } else {
+      l.innerHTML = `<div class="n">${c.nome}</div>
+        <input type="range" id="c_${c.id}" min="${c.min}" max="${c.max}" step="${c.passo}" value="${c.val}">
+        <div class="d" id="d_${c.id}">${c.val}${c.suf||""}</div>`;
+      alvo.appendChild(l);
+      const inp = l.querySelector("input");
+      inp.addEventListener("input", () => $("#d_"+c.id).textContent = inp.value + (c.suf||""));
+    }
+    const d = document.createElement("div"); d.className = "dica"; d.textContent = c.dica;
+    if (c.dica) d.title = c.dica;
+    alvo.appendChild(d);
+  });
+  $("#ctrlTom").classList.toggle("oculto", modo !== "trocar");
+  $("#ctrlF0").classList.toggle("oculto", modo !== "trocar");
+  atualizaCartaoToken();
+  ajustaTrocar(); ajustaSeparar();
+}
+
+/* Seed-VC nao usa os ajustes finos do RVC: escondemos e explicamos —
+   o painel faz igual (dicaSoRvc). */
+function ajustaTrocar(){
+  if (modo !== "trocar") return;
+  const el = $("#c_motor_vc");
+  const rvc = el && el.value === "rvc";
+  document.querySelectorAll(".soRvc").forEach(x => x.classList.toggle("oculto", !rvc));
+  document.querySelectorAll(".soSeed").forEach(x => x.classList.toggle("oculto", rvc));
+  $("#ctrlTom").classList.toggle("oculto", !rvc);
+  $("#ctrlF0").classList.toggle("oculto", !rvc);
+  let d = $("#dicaSoRvc");
+  if (!d){
+    d = document.createElement("div");
+    d.className = "dica"; d.id = "dicaSoRvc";
+    $("#controlesLista").appendChild(d);
+  }
+  d.textContent = rvc ? "" :
+    "os ajustes finos (Presença, Atuação, Semelhança, Tom, Entonação) aparecem quando o motor é o RVC — o Seed-VC não usa nenhum deles.";
+  atualizarDicaVoz();   // trocar de motor muda o que a voz escolhida pode fazer
+}
+
+/* "Vozes" so faz sentido quando o motor divide por pessoa pelo timbre */
+function ajustaSeparar(){
+  if (modo !== "separar") return;
+  const el = $("#c_motor_diar");
+  const m = el ? el.value : "";
+  const vale = (m !== "roteiro" && m !== "nenhum" && m !== "mossformer2" && m !== "tiger" && m !== "sam" && m !== "sam_risada");
+  const linha = $("#c_vozes") ? $("#c_vozes").closest(".ctrl") : null;
+  if (linha){
+    linha.classList.toggle("oculto", !vale);
+    const dica = linha.nextElementSibling;
+    if (dica && dica.classList.contains("dica")) dica.classList.toggle("oculto", !vale);
+  }
+}
+
+/* o botao diz a ACAO, como no painel */
+const ACAO = { melhorar:"Melhorar", trocar:"Trocar voz", separar:"Separar",
+               treinar:"Treinar voz", dublar:"Dublar", falar:"Falar" };
+/* e o rotulo do cartao fala do modo, tambem como no painel */
+/* titulo CURTO + subtitulo em cinza baixo — o .card-title/.card-sub do
+   DECUPZ. A frase inteira em caixa alta era o "agressivo" que ele viu. */
+const ROTULO_MODO = {
+  melhorar:["MELHORAR", "nivela e reconstrói a voz com o Sidon"],
+  trocar:["TROCAR VOZ", "outra voz na fala, sem mexer no original"],
+  separar:["SEPARAR", "uma faixa por pessoa"],
+  treinar:["TREINAR VOZ NOVA", "com o que você soltar aqui"],
+  dublar:["DUBLAR", "traduz e fala no outro idioma"],
+  falar:["FALAR", "texto vira fala com a voz treinada"]
+};
+
+function aplicarModo(){
+  document.querySelectorAll(".aba").forEach(a => a.classList.toggle("on", a.dataset.modo === modo));
+  $("#zonaArquivo").classList.toggle("oculto", modo === "falar");
+  $("#zonaTexto").classList.toggle("oculto", modo !== "falar");
+  $("#zonaNome").classList.toggle("oculto", modo !== "treinar");
+  $("#zonaNivel").classList.toggle("oculto", modo !== "treinar");
+  // 07/10: Separar tambem nao le p["lufs"] (corta o original, nao nivela) —
+  // ele viu o botao la e perguntou "pra que?". Mesmo caso do treino.
+  $("#zonaLufs").classList.toggle("oculto", modo === "treinar" || modo === "separar");
+  // Treinar cria a voz; Melhorar nao usa voz; Dublar clona a voz do PROPRIO
+  // arquivo (zero-shot); Separar divide o que ja existe — nenhum deles
+  // escolhe voz da biblioteca.
+  $("#cartaoVoz").classList.toggle("oculto",
+    modo === "melhorar" || modo === "treinar" || modo === "dublar" ||
+    modo === "separar");
+  // No treino da pra mandar varios arquivos de uma vez.
+  $("#arquivo").multiple = (modo === "treinar");
+  if (modo === "treinar"){
+    $("#soltaT").textContent = arquivosTreino.length
+      ? `${arquivosTreino.length} arquivo(s) escolhido(s)` : "Arraste os áudios da voz aqui";
+    $("#soltaS").textContent = "quanto mais minutos, melhor — 10 é o alvo confortável";
+  } else {
+    $("#soltaT").textContent = enviado ? nomeEnviado : "Arraste o áudio ou vídeo aqui";
+    $("#soltaS").textContent = enviado ? "pronto — clique em Gerar" : "ou clique para escolher";
+  }
+  if (modo === "separar"){
+    $("#soltaS").textContent = enviado
+      ? "pronto — cada pessoa vai sair numa faixa, no Histórico"
+      : "diálogo com mais de uma pessoa — sai uma faixa por voz";
+  }
+  // trecho: só onde entra UM arquivo e o servidor sabe cortar
+  $("#cartaoTrecho").classList.toggle("oculto",
+    !enviado || modo === "treinar" || modo === "falar");
+  $("#gerar").textContent = ACAO[modo] || "Gerar";
+  $("#solta").classList.toggle("cheio",
+    modo === "treinar" ? arquivosTreino.length > 0 : !!enviado);
+  montarControles();
+  pintarNivel();          // depende do #c_epocas, que nasce ali em cima
+  atualizarDicaVoz();
+}
+
+function atualizarDicaVoz(){
+  const v = vozes.find(x => x.nome === $("#voz").value);
+  if (!v) { $("#dicaVoz").textContent = ""; return; }
+  /* TRAVA VELHA (consertada em 24/08). Isto dizia "só serve para Falar"
+     pra qualquer voz sem modelo.pth — regra da época em que o RVC era o
+     único motor. O Seed-VC, que é o PADRãO, troca voz só com a amostra:
+     o próprio servidor só recusa quando o motor escolhido é o RVC
+     (servidor.py:357). Aqui agora vale a mesma regra. */
+  const rvc = $("#c_motor_vc") && $("#c_motor_vc").value === "rvc";
+  $("#dicaVoz").textContent = (modo === "trocar" && !v.pode_trocar)
+    ? (rvc ? "Esta voz não tem o fichário do RVC. Escolha o Seed-VC no Motor, ou treine ela de novo no nível Máxima."
+           : "Voz sem fichário do RVC — funciona no Seed-VC, que é o motor padrão.")
+    : "";
+  // e o RVC fica desligado na lista quando a voz não tem fichário
+  const sel = $("#c_motor_vc");
+  if (sel) for (const o of sel.options)
+    if (o.value === "rvc") o.disabled = !v.pode_trocar;
+}
+
+/* mesma biblioteca do painel (a pasta vozes\ do servidor). Rele de tempos em
+   tempos pra voz treinada no PLUGIN aparecer aqui sem F5 — e so redesenha
+   quando muda de verdade, senao fecharia o dropdown na mao dele. */
+let ASSINATURA_VOZES = null;   // null = nunca li; "" = li e esta vazia
+
+async function carregarVozes(){
+  try{
+    const r = await fetch("/api/vozes"); const j = await r.json();
+    const lista = j.vozes || [];
+    const assinatura = lista.map(v => v.nome + (v.pode_trocar ? "R" : "")
+                                    + (v.pode_trocar_seedvc ? "S" : "")).join("|");
+    if (assinatura === ASSINATURA_VOZES) return;
+    ASSINATURA_VOZES = assinatura;
+    vozes = lista;
+    const s = $("#voz"); s.innerHTML = "";
+    if (!vozes.length){
+      s.innerHTML = '<option value="">nenhuma voz cadastrada</option>';
+    } else {
+      vozes.forEach(v => {
+        const o = document.createElement("option");
+        o.value = v.nome;
+        o.textContent = v.nome;   // só o nome (pedido dele, 24/08): o que a
+                                  // voz faz ou deixa de fazer aparece na
+                                  // dica embaixo, quando ela e escolhida
+        s.appendChild(o);
+      });
+    }
+    atualizarDicaVoz();
+  }catch(e){ mostrar("erro", "não consegui carregar as vozes"); }
+}
+
+/* O som de "terminou" (pedido dele em 23/08). O app toca direto; o painel do
+ * Premiere nao consegue tocar audio e pede pro servidor pelo /api/plim. */
+const SOM_PRONTO = new Audio("/som/pronto.mp3");
+SOM_PRONTO.preload = "auto";
+function plim(){
+  try { SOM_PRONTO.currentTime = 0; SOM_PRONTO.play().catch(() => {}); }
+  catch(e){}
+}
+
+/* REGISTRO: o painel tem log, o app so tinha o aviso passageiro. Agora
+   toda mensagem tambem fica guardada la embaixo (clone, 25/08). */
+function escreveLog(txt, tipo){
+  const el = document.getElementById("log");
+  if (!el) return;
+  if (el.textContent === "pronto pra trabalhar.") el.textContent = "";
+  const l = document.createElement("div");
+  if (tipo === "erro") l.className = "lerro";
+  if (tipo === "ok") l.className = "lok";
+  l.textContent = new Date().toTimeString().slice(0, 5) + "  " + txt;
+  el.appendChild(l);
+  el.scrollTop = el.scrollHeight;
+  if (tipo === "erro"){                 // erro abre o registro sozinho
+    el.classList.remove("oculto");
+    const c = document.getElementById("logChev");
+    if (c) c.textContent = "▾";
+  }
+}
+
+function mostrar(tipo, msg){
+  escreveLog(msg, tipo);
+  const a = $("#aviso");
+  a.className = "aviso on " + tipo; a.textContent = msg;
+}
+function esconder(){ $("#aviso").className = "aviso"; }
+
+/* ---- waveform estilo Artlist (16/08): barras + progresso verde + clique
+ * busca a posicao. O <audio> continua sendo o motor (escondido) — todo o
+ * codigo que seta player.src segue igual; o desenho escuta o loadstart. */
+const player = $("#player"), onda = $("#onda"), btPlay = $("#btPlay");
+let PICOS = null, CTX_AUDIO = null, RAF_ONDA = 0;
+
+function fmtTempo(s, decimo){
+  if (!isFinite(s) || s < 0) return "0:00";
+  // com zoom no trim, segundo inteiro não basta: 0:02,4 é o que dá precisão
+  if (decimo){
+    s = Math.round(s * 10) / 10;
+    const d = Math.round((s - Math.floor(s)) * 10);
+    return Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0") +
+           (d ? "," + d : "");
+  }
+  return Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+}
+
+async function desenharOnda(url){
+  PICOS = null; renderOnda();
+  try{
+    const buf = await (await fetch(url)).arrayBuffer();
+    CTX_AUDIO = CTX_AUDIO || new (window.AudioContext || window.webkitAudioContext)();
+    const audio = await CTX_AUDIO.decodeAudioData(buf);
+    const dados = audio.getChannelData(0);
+    const alvo = Math.max(60, Math.floor((onda.clientWidth || 320) / 4));
+    const passo = Math.floor(dados.length / alvo) || 1;
+    const picos = [];
+    for (let i = 0; i < alvo; i++){
+      let pico = 0;
+      const fim = Math.min((i + 1) * passo, dados.length);
+      for (let j = i * passo; j < fim; j += 16){   // amostrado: rapido e fiel o bastante
+        const v = Math.abs(dados[j]);
+        if (v > pico) pico = v;
+      }
+      picos.push(pico);
+    }
+    const teto = Math.max(...picos) || 1;
+    PICOS = picos.map(p => p / teto);
+    renderOnda();
+  }catch(e){ /* sem onda o player segue funcionando */ }
+}
+
+function renderOnda(){
+  const dpr = window.devicePixelRatio || 1;
+  const w = onda.clientWidth || 320, h = 56;
+  if (onda.width !== Math.round(w * dpr)){
+    onda.width = Math.round(w * dpr); onda.height = Math.round(h * dpr);
+  }
+  const g = onda.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const prog = (player.duration > 0) ? player.currentTime / player.duration : 0;
+  if (PICOS){
+    const n = PICOS.length, larg = w / n;
+    for (let i = 0; i < n; i++){
+      const alt = Math.max(2, PICOS[i] * (h - 8));
+      g.fillStyle = ((i + .5) / n <= prog) ? corTema("--accent") : "rgba(255,255,255,.22)";
+      g.fillRect(i * larg, (h - alt) / 2, Math.max(1.5, larg - 1.5), alt);
+    }
+  } else {
+    g.fillStyle = "rgba(255,255,255,.13)";
+    g.fillRect(0, h / 2 - 1, w, 2);   // carregando: um fio no lugar
+  }
+  $("#tempoOnda").textContent = fmtTempo(player.currentTime) + " / " + fmtTempo(player.duration);
+}
+
+function lacoOnda(){
+  renderOnda();
+  if (!player.paused && !player.ended) RAF_ONDA = requestAnimationFrame(lacoOnda);
+}
+
+/* ---- comparador ANTES x DEPOIS (16/08).
+ * A lição mais cara do projeto (14/08): comparação de áudio SEM volume
+ * igualado mede o volume, não a qualidade — o ouvido lê "mais alto" como
+ * "melhor". Por isso o servidor manda o LUFS dos dois lados e aqui o mais
+ * ALTO é atenuado até o nível do outro (atenuar é exato; amplificar não dá
+ * no <audio>). Desmarcar mostra o mundo como ele é, alto contra baixo. */
+/* ---- TRECHO (16/08): arquivo grande, mas só um pedaço interessa.
+ * A onda é desenhada do arquivo LOCAL (nada sobe pro servidor pra isso) e o
+ * pedaço vai como inicio/fim no pedido — o servidor corta antes de tudo. */
+const FONTE = {url: null, dur: 0, picos: null, ini: 0, fim: 0, pesado: false};
+const pfonte = $("#playerFonte"), tira = $("#tira"), H_TIRA = 60;
+let vIni = 0, vFim = 0, geracao = 0, canalAudio = null, videoFonte = null,
+    redesenhoPend = null, arrasto = null, ultimoDesenho = null;
+const CACHE_FRAME = new Map();   // tempo arredondado -> canvas da miniatura
+
+function tempoDeTexto(txt){
+  // aceita "1:23", "83" e o décimo com vírgula que a faixa escreve ("0:02,4")
+  const p = String(txt).trim().replace(",", ".").split(":").map(x => Number(x));
+  if (!p.length || p.some(x => isNaN(x))) return null;
+  return p.length >= 2 ? p[0] * 60 + p[1] : p[0];
+}
+const pxPorTempo = () => tira.clientWidth / Math.max(0.001, vFim - vIni);
+const tempoParaX = t => (t - vIni) * pxPorTempo();
+
+function camposTrecho(){
+  $("#trIni").value = fmtTempo(FONTE.ini, true);
+  $("#trFim").value = fmtTempo(FONTE.fim, true);
+  const inteiro = FONTE.ini <= .05 && FONTE.fim >= FONTE.dur - .05;
+  // texto CURTO e de tamanho estável — a explicação do keyframe fica só no
+  // estado de repouso, senão a dica pula de linha no meio do arraste
+  $("#trDica").textContent = !FONTE.dur ? "" : inteiro
+    ? "arquivo inteiro (" + fmtTempo(FONTE.dur) + ") — arraste as pontas pra escolher um trecho"
+    : "vai processar " + fmtTempo(FONTE.fim - FONTE.ini) + " de " + fmtTempo(FONTE.dur) +
+      (videoFonte ? " · em vídeo o corte encosta no keyframe (~1 s)" : "");
+  renderFonte();
+}
+
+// desenha a moldura, as sombras e os tempos (o conteúdo da faixa é o canvas)
+function renderFonte(){
+  if (!FONTE.dur) return;
+  const W = tira.clientWidth;
+  const a = Math.max(-30, Math.min(W + 30, tempoParaX(FONTE.ini)));
+  const b = Math.max(-30, Math.min(W + 30, tempoParaX(FONTE.fim)));
+  $("#quadro").style.left = a + "px";
+  $("#quadro").style.width = Math.max(0, b - a) + "px";
+  $("#alcaEsq").style.left = (a - 24) + "px";
+  $("#alcaDir").style.left = (b - 6) + "px";
+  $("#sombraEsq").style.width = Math.max(0, Math.min(W, a)) + "px";
+  $("#sombraDir").style.width = Math.max(0, W - Math.max(0, Math.min(W, b))) + "px";
+  $("#tIni").textContent = fmtTempo(FONTE.ini, true);
+  $("#tFim").textContent = fmtTempo(FONTE.fim, true);
+  $("#tSel").textContent = fmtTempo(FONTE.fim - FONTE.ini, true) + " selecionados";
+  $("#zjanela").textContent = (vFim - vIni >= FONTE.dur - .01)
+    ? "vendo tudo" : "vendo " + fmtTempo(vFim - vIni, true);
+  posAgulha();
+}
+
+function posAgulha(){
+  if (!FONTE.dur) return;
+  const x = tempoParaX(pfonte.currentTime), ag = $("#agulha");
+  ag.style.display = (pfonte.currentTime > 0 && x >= -2 && x <= tira.clientWidth + 2)
+    ? "block" : "none";
+  ag.style.left = (x - 1.5) + "px";
+}
+pfonte.addEventListener("timeupdate", posAgulha);
+pfonte.addEventListener("seeked", posAgulha);
+
+// ---- zoom e navegação
+function ajustarJanela(largura, centro){
+  largura = Math.max(Math.min(0.25, FONTE.dur), Math.min(FONTE.dur, largura));
+  vIni = Math.max(0, Math.min(FONTE.dur - largura, centro - largura / 2));
+  vFim = vIni + largura;
+  renderFonte();
+  if (canalAudio){          // onda é barata: acompanha o dedo, sem espera
+    pintar(); return;
+  }
+  esticarUltimo();          // vídeo: mostra JÁ o desenho antigo reenquadrado…
+  clearTimeout(redesenhoPend);
+  redesenhoPend = setTimeout(pintar, 120);   // …e refina os frames depois
+}
+
+/* Reenquadra o último desenho na janela nova — é o que dá a sensação de
+ * zoom instantâneo (antes a faixa ficava PRETA até os frames chegarem, e
+ * era isso o "não é reativo, eu me perco"). */
+function esticarUltimo(){
+  if (!ultimoDesenho || !tira.clientWidth) return;
+  const cv = $("#tiraCanvas"), W = tira.clientWidth;
+  const u = ultimoDesenho, larguraU = u.vFim - u.vIni;
+  if (larguraU <= 0) return;
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#0d0d0f"; ctx.fillRect(0, 0, cv.width, cv.height);
+  const sx = (vIni - u.vIni) / larguraU * u.canvas.width;
+  const sw = (vFim - vIni) / larguraU * u.canvas.width;
+  try {
+    ctx.drawImage(u.canvas, sx, 0, sw, u.canvas.height, 0, 0, cv.width, cv.height);
+  } catch (e) { /* fora do desenho antigo: fica o fundo */ }
+}
+
+function guardarUltimo(){
+  const cv = $("#tiraCanvas");
+  if (!cv.width) return;
+  const c = ultimoDesenho && ultimoDesenho.canvas.width === cv.width
+    ? ultimoDesenho.canvas : document.createElement("canvas");
+  c.width = cv.width; c.height = cv.height;
+  c.getContext("2d").drawImage(cv, 0, 0);
+  ultimoDesenho = {canvas: c, vIni, vFim};
+}
+$("#zoom").addEventListener("input", () => {
+  if (!FONTE.dur) return;
+  const f = 1 - (+$("#zoom").value / 100) * (1 - 1 / 60);
+  ajustarJanela(FONTE.dur * f, (vIni + vFim) / 2);
+});
+tira.addEventListener("wheel", e => {
+  if (!FONTE.dur) return;
+  e.preventDefault();
+  const larg = vFim - vIni;
+  if (e.ctrlKey || e.shiftKey){
+    const r = tira.getBoundingClientRect();
+    const foco = vIni + (e.clientX - r.left) / r.width * larg;
+    const nova = larg * (e.deltaY > 0 ? 1.25 : 0.8);
+    $("#zoom").value = Math.round((1 - Math.min(1, nova / FONTE.dur)) / (1 - 1 / 60) * 100);
+    ajustarJanela(nova, foco);
+  } else {
+    ajustarJanela(larg, (vIni + vFim) / 2 + (e.deltaY || e.deltaX) * larg / 400);
+  }
+}, {passive: false});
+
+function tempoDoEvento(e){
+  const r = tira.getBoundingClientRect();
+  return Math.max(0, Math.min(FONTE.dur,
+    vIni + (e.clientX - r.left) / r.width * (vFim - vIni)));
+}
+["alcaEsq", "alcaDir"].forEach(id => $("#" + id).addEventListener("pointerdown", e => {
+  arrasto = (id === "alcaEsq") ? "esq" : "dir";
+  e.stopPropagation();
+  try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
+}));
+window.addEventListener("pointermove", e => {
+  if (!arrasto || !FONTE.dur) return;
+  const t = tempoDoEvento(e);
+  if (arrasto === "esq") FONTE.ini = Math.max(0, Math.min(t, FONTE.fim - .1));
+  else FONTE.fim = Math.min(FONTE.dur, Math.max(t, FONTE.ini + .1));
+  camposTrecho();
+});
+window.addEventListener("pointerup", () => { arrasto = null; });
+
+/* Clique na faixa POSICIONA a agulha (não força play — dar play a cada
+ * clique era o "reprodução bugada" de 16/08). Tocando, continua dali. */
+tira.addEventListener("pointerdown", e => {
+  if (arrasto || !FONTE.dur) return;
+  pfonte.currentTime = tempoDoEvento(e);
+  posAgulha();
+});
+
+/* Play/pause do TRECHO: começa no início marcado (ou de onde a agulha
+ * estiver, se ela já está dentro) e para sozinho no fim do trecho. */
+function pararNoFim(){
+  if (pfonte.currentTime >= FONTE.fim - .02){
+    pfonte.pause();
+    pfonte.currentTime = FONTE.ini;
+    posAgulha();
+  }
+}
+$("#trPlay").addEventListener("click", () => {
+  if (!FONTE.url || !FONTE.dur) return;
+  if (!pfonte.paused){ pfonte.pause(); return; }
+  const dentro = pfonte.currentTime > FONTE.ini + .05 &&
+                 pfonte.currentTime < FONTE.fim - .05;
+  if (!dentro) pfonte.currentTime = FONTE.ini;
+  pfonte.play();
+});
+pfonte.addEventListener("timeupdate", pararNoFim);
+pfonte.addEventListener("play", () => { $("#trPlay").textContent = "❚❚"; });
+["pause", "ended"].forEach(ev =>
+  pfonte.addEventListener(ev, () => { $("#trPlay").textContent = "▶"; }));
+
+// ---- desenho do conteúdo (frames ou onda)
+function contexto(limpar){
+  const cv = $("#tiraCanvas"), W = tira.clientWidth;
+  if (!W) return null;
+  const larguraPx = Math.round(W * 2);
+  if (cv.width !== larguraPx){ cv.width = larguraPx; cv.height = H_TIRA * 2; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(2, 2);
+  // vídeo NÃO limpa: fica o enquadramento esticado até os frames chegarem
+  if (limpar){ ctx.fillStyle = "#141416"; ctx.fillRect(0, 0, W, H_TIRA); }
+  return {ctx, W};
+}
+
+async function pintar(){
+  const minha = ++geracao;
+  const c = contexto(!videoFonte);
+  if (!c) return;
+  if (videoFonte) await pintarFrames(c, minha);
+  else if (canalAudio) pintarOnda(c);
+  if (geracao === minha) guardarUltimo();
+}
+
+function frameDoCache(t){
+  return CACHE_FRAME.get(Math.round(t * 5) / 5);   // grade de 0,2 s
+}
+function guardaFrame(t, v, w, h){
+  const c = document.createElement("canvas");
+  c.width = Math.round(w * 2); c.height = Math.round(h * 2);
+  c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+  if (CACHE_FRAME.size > 240) CACHE_FRAME.clear();
+  CACHE_FRAME.set(Math.round(t * 5) / 5, c);
+  return c;
+}
+
+async function pintarFrames({ctx, W}, minha){
+  const v = videoFonte;
+  const tw = Math.max(26, H_TIRA * v.videoWidth / v.videoHeight);
+  const n = Math.max(1, Math.ceil(W / tw));
+  const faltando = [];
+  // 1ª passada: o que já está em cache entra NA HORA (zoom de volta é instantâneo)
+  for (let i = 0; i < n; i++){
+    const t = vIni + (vFim - vIni) * (i + 0.5) / n;
+    const pronto = frameDoCache(t);
+    if (pronto) ctx.drawImage(pronto, i * tw, 0, tw, H_TIRA);
+    else faltando.push({i, t});
+  }
+  // 2ª passada: busca só o que falta, desenhando cada um assim que chega
+  for (const {i, t} of faltando){
+    await new Promise(res => {
+      const ok = () => { v.removeEventListener("seeked", ok); res(); };
+      v.addEventListener("seeked", ok);
+      v.currentTime = Math.max(0, Math.min(FONTE.dur - 0.03, t));
+    });
+    if (geracao !== minha) return;
+    ctx.drawImage(guardaFrame(t, v, tw, H_TIRA), i * tw, 0, tw, H_TIRA);
+  }
+}
+
+function pintarOnda({ctx, W}){
+  const {dados, taxa} = canalAudio;
+  ctx.fillStyle = "#141416"; ctx.fillRect(0, 0, W, H_TIRA);
+  ctx.fillStyle = "#9a9aa3";
+  const meio = H_TIRA / 2, seg0 = (vFim - vIni) / W;
+  for (let x = 0; x < W; x++){
+    const a = Math.floor((vIni + x * seg0) * taxa);
+    const b = Math.min(dados.length, Math.floor((vIni + (x + 1) * seg0) * taxa));
+    let pico = 0;
+    const passo = Math.max(1, Math.floor((b - a) / 240));
+    for (let i = Math.max(0, a); i < b; i += passo){
+      const val = Math.abs(dados[i]); if (val > pico) pico = val;
+    }
+    const h = Math.max(1, pico * (H_TIRA - 10));
+    ctx.fillRect(x, meio - h / 2, 1, h);
+  }
+}
+
+async function prepararFonte(file){
+  if (FONTE.url) URL.revokeObjectURL(FONTE.url);
+  Object.assign(FONTE, {url: URL.createObjectURL(file), dur: 0, picos: null,
+                        ini: 0, fim: 0, pesado: file.size > 150 * 1024 * 1024});
+  const minha = ++geracao;
+  canalAudio = null; videoFonte = null;
+  ultimoDesenho = null; CACHE_FRAME.clear();   // arquivo novo, desenho novo
+  $("#trPlay").textContent = "▶";
+  pfonte.pause();
+  pfonte.src = FONTE.url;
+  $("#zoom").value = 0;
+  $("#agulha").style.display = "none";
+  $("#cartaoTrecho").classList.remove("oculto");
+  await new Promise(r => {
+    pfonte.addEventListener("loadedmetadata", r, {once: true});
+    setTimeout(r, 8000);   // arquivo estranho nao pode travar a tela
+  });
+  FONTE.dur = isFinite(pfonte.duration) ? pfonte.duration : 0;
+  FONTE.fim = FONTE.dur;
+  vIni = 0; vFim = FONTE.dur;
+  camposTrecho();
+  if (!FONTE.dur) return;
+  try{
+    const v = document.createElement("video");
+    v.muted = true; v.preload = "auto"; v.src = FONTE.url;
+    await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; });
+    if (geracao !== minha) return;
+    if (v.videoWidth > 0) videoFonte = v;
+  }catch(e){ /* sem vídeo: cai na onda */ }
+  if (!videoFonte && !FONTE.pesado){   // arquivo enorme: só os campos de tempo
+    try{
+      CTX_AUDIO = CTX_AUDIO || new (window.AudioContext || window.webkitAudioContext)();
+      const audio = await CTX_AUDIO.decodeAudioData(await file.arrayBuffer());
+      if (geracao !== minha) return;
+      canalAudio = {dados: audio.getChannelData(0), taxa: audio.sampleRate};
+    }catch(e){ /* sem onda: os campos de tempo continuam valendo */ }
+  }
+  if (geracao !== minha) return;
+  pintar();
+}
+
+$("#trTudo").addEventListener("click", () => {
+  FONTE.ini = 0; FONTE.fim = FONTE.dur;
+  vIni = 0; vFim = FONTE.dur; $("#zoom").value = 0;
+  camposTrecho(); pintar();
+});
+["trIni", "trFim"].forEach(id => $("#" + id).addEventListener("change", () => {
+  const v = tempoDeTexto($("#" + id).value);
+  if (v === null || !FONTE.dur) return camposTrecho();
+  if (id === "trIni") FONTE.ini = Math.max(0, Math.min(v, FONTE.fim - .1));
+  else FONTE.fim = Math.min(FONTE.dur, Math.max(v, FONTE.ini + .1));
+  camposTrecho();
+}));
+/* A faixa é desenhada em pixels reais; sem redesenhar no resize ela fica
+ * esticada/borrada quando a janela muda de tamanho (16/08). */
+let resizePend = null;
+window.addEventListener("resize", () => {
+  if (!FONTE.dur) return;
+  clearTimeout(resizePend);
+  resizePend = setTimeout(() => { renderFonte(); pintar(); }, 120);
+});
+
+const video = $("#video");
+const AB = {id: null, hist: false, video: false, lufs: null, antes: false};
+
+/* saida em VIDEO toca no <video> (ele quer VER o vídeo, 16/08); saida em
+ * audio toca no <audio> com a onda. MIDIA e sempre quem esta no comando. */
+function midia(){ return AB.video ? video : player; }
+
+function abSrc(antes){
+  if (antes) return "/antes/" + AB.id;
+  if (AB.video) return "/video/" + AB.id;
+  return AB.hist ? "/audio-h?id=" + AB.id : "/audio/" + AB.id;
+}
+
+function abVolume(){
+  const l = AB.lufs, m = midia();
+  if (!$("#igualar").checked || !l || l.antes == null || l.depois == null){
+    m.volume = 1; return;
+  }
+  const atual = AB.antes ? l.antes : l.depois;
+  const alvo = Math.min(l.antes, l.depois);         // nivela por baixo
+  m.volume = Math.max(0, Math.min(1, Math.pow(10, (alvo - atual) / 20)));
+}
+
+function abLado(antes){
+  if (!AB.id || AB.antes === antes) return;
+  AB.antes = antes;
+  $("#abAntes").classList.toggle("ativa", antes);
+  $("#abDepois").classList.toggle("ativa", !antes);
+  const m = midia(), pos = m.currentTime, tocava = !m.paused;
+  m.src = abSrc(antes) + (abSrc(antes).includes("?") ? "&" : "?") + "x=" + Date.now();
+  m.addEventListener("loadedmetadata", function volta(){
+    m.removeEventListener("loadedmetadata", volta);
+    if (isFinite(pos) && pos > 0) m.currentTime = Math.min(pos, m.duration || pos);
+    abVolume();
+    if (tocava) m.play();
+  });
+}
+
+$("#abAntes").addEventListener("click", () => abLado(true));
+$("#abDepois").addEventListener("click", () => abLado(false));
+$("#igualar").addEventListener("change", abVolume);
+
+/* Abre o card de saida — caminho unico da geracao nova E do historico. */
+function abrirSaida(op){
+  AB.id = op.id; AB.hist = !!op.hist; AB.video = !!op.video;
+  AB.lufs = op.lufs || null; AB.antes = false;
+  $("#abAntes").classList.remove("ativa");
+  $("#abDepois").classList.add("ativa");
+  desmontarMixer();
+  $("#ab").classList.toggle("on", !!op.temAntes);
+
+  video.classList.toggle("oculto", !op.video);
+  $("#tocador").classList.toggle("oculto", !!op.video);
+  if (op.video){
+    player.pause(); player.removeAttribute("src");
+    video.src = abSrc(false) + "?x=" + Date.now();
+  } else {
+    video.pause(); video.removeAttribute("src");
+    player.src = abSrc(false) + (abSrc(false).includes("?") ? "&" : "?") + "x=" + Date.now();
+  }
+  abVolume();
+  const elBx = $("#baixar");
+  if (op.separar){
+    // separacao entrega stems: o botao de cima leva TODOS de uma vez
+    elBx.href = "#";
+    elBx.removeAttribute("download");
+    elBx.textContent = "baixar tudo";
+    elBx.onclick = (ev) => { ev.preventDefault(); baixarTudo(); };
+  } else {
+    elBx.onclick = null;
+    elBx.href = op.hist ? "/baixar-h?id=" + op.id : "/baixar/" + op.id;
+    elBx.setAttribute("download", "");
+    elBx.textContent = op.video ? "baixar vídeo" : "baixar";
+  }
+  $("#nomeSaida").textContent = op.titulo +
+    (op.video ? "  ·  vídeo original sem recodificar" : "");
+  $("#saida").classList.add("on");
+  if (op.tocar) midia().play();
+  // Separar entrega DUAS vozes: em vez do antes/depois, a mesa de mistura.
+  if (op.separar) montarMixer(op.id);
+}
+
+player.addEventListener("loadstart", () => desenharOnda(player.currentSrc || player.src));
+player.addEventListener("loadedmetadata", renderOnda);
+player.addEventListener("play", () => { btPlay.textContent = "❚❚"; cancelAnimationFrame(RAF_ONDA); lacoOnda(); });
+player.addEventListener("pause", () => { btPlay.textContent = "▶"; renderOnda(); });
+player.addEventListener("ended", () => { btPlay.textContent = "▶"; renderOnda(); });
+btPlay.addEventListener("click", () => { if (player.src) (player.paused ? player.play() : player.pause()); });
+onda.addEventListener("click", e => {
+  const r = onda.getBoundingClientRect();
+  if (!player.duration || !r.width) return;
+  player.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * player.duration;
+  renderOnda();
+});
+
+/* ---- MESA DE MISTURA do Separar (16/08).
+ * O A/B de dois botões não servia aqui: são TRÊS coisas pra comparar (o
+ * original e as duas vozes). Agora cada uma é uma faixa com onda, M/S e
+ * nome próprio — e todas correm no relógio do vídeo, como numa timeline. */
+/* `geracao` existe por causa de um bug que ele relatou (19/08): "o DUBX fica
+ * dando play sozinho em áudios e eu não consigo parar". Causa: montarMixer()
+ * ESPERA a resposta do servidor; se outro item for aberto nesse meio-tempo, a
+ * chamada velha volta e recria as faixas do arquivo ANTERIOR. Como as faixas
+ * do mixer sao `new Audio()` — sem controle na tela — o resultado e audio
+ * tocando sem botao pra parar. O contador invalida a chamada atrasada. */
+const MIX = {faixas: [], mestre: null, laco: 0, geracao: 0};
+
+/* Freio de emergencia: cala TUDO que pode estar tocando. */
+function pararTudo(){
+  try { player.pause(); } catch(e){}
+  try { video.pause(); } catch(e){}
+  try { if (typeof pfonte !== "undefined" && pfonte) pfonte.pause(); } catch(e){}
+  MIX.faixas.forEach(f => { try { f.som.pause(); } catch(e){} });
+}
+
+function mixMestre(){ return AB.video ? video : player; }
+
+async function montarMixer(id){
+  desmontarMixer();
+  const minhaGeracao = MIX.geracao;      // desmontarMixer acabou de incrementar
+  let j;
+  try { j = await (await fetch("/api/faixas?id=" + encodeURIComponent(id))).json(); }
+  catch(e){ return; }
+  // outro item foi aberto enquanto esperavamos: esta resposta esta velha
+  if (minhaGeracao !== MIX.geracao) return;
+  if (!j || !j.faixas || j.faixas.length < 2) return;
+
+  const alvo = $("#mixerFaixas"); alvo.innerHTML = "";
+  j.faixas.forEach(f => {
+    const linha = document.createElement("div");
+    linha.className = "faixa";
+    linha.innerHTML = `
+      <div class="cabeca">
+        <input class="nome" type="text" value="${f.nome}" spellcheck="false">
+        <div class="bts">
+          <button class="bt mudo" title="mudo">M</button>
+          <button class="bt solo" title="só esta">S</button>
+          <button class="bt play" title="tocar / pausar (sem subir até o player)">▶</button>
+        </div>
+      </div>
+      <canvas></canvas>
+      <div class="baixa">
+        <a href="#" class="bxAudio">áudio</a>
+        ${f.baixar_video ? '<a href="#" class="bxVideo">vídeo</a>' : ""}
+      </div>`;
+    alvo.appendChild(linha);
+
+    // O vídeo da tela JÁ vem com a voz 1 embutida — então ele entra mudo,
+    // só como imagem, e as TRÊS faixas tocam como <audio> separados. Sem
+    // isso a voz 1 sairia dobrada e o "Original" nunca seria o original.
+    const som = new Audio();
+    som.preload = "auto";
+    som.src = f.ouvir;
+    const reg = {def: f, linha, som, mudo: false, solo: false,
+                 canvas: linha.querySelector("canvas"), picos: null};
+    MIX.faixas.push(reg);
+
+    linha.querySelector(".mudo").addEventListener("click", e => {
+      reg.mudo = !reg.mudo; e.currentTarget.classList.toggle("on", reg.mudo);
+      aplicarMix();
+    });
+    linha.querySelector(".solo").addEventListener("click", e => {
+      reg.solo = !reg.solo; e.currentTarget.classList.toggle("on", reg.solo);
+      aplicarMix();
+    });
+    linha.querySelector(".bxAudio").addEventListener("click", ev => {
+      ev.preventDefault();
+      baixarFaixa(f.baixar, nomeDeArquivo(reg, f.arquivo));
+    });
+    const bv = linha.querySelector(".bxVideo");
+    if (bv) bv.addEventListener("click", ev => {
+      ev.preventDefault();
+      baixarFaixa(f.baixar_video, nomeDeArquivo(reg, f.arquivo_video));
+    });
+    linha.querySelector(".play").addEventListener("click", () => {
+      const m = mixMestre();
+      if (m.paused) m.play().catch(() => {}); else m.pause();
+    });
+    reg.canvas.addEventListener("click", e => {
+      const m = mixMestre(), r = reg.canvas.getBoundingClientRect();
+      if (!m.duration || !r.width) return;
+      m.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * m.duration;
+      sincronizarMix(true);
+    });
+    desenharFaixa(reg);
+  });
+
+  $("#mixer").classList.add("on");
+  $("#ab").classList.remove("on");   // o antes/depois vira a faixa "Original"
+  video.muted = true;                 // imagem só; o som vem das faixas
+  player.muted = true;
+  aplicarMix();
+  ligarRelogio();
+}
+
+function nomeDeArquivo(reg, padrao){
+  const escrito = reg.linha.querySelector(".nome").value.trim();
+  const ext = (padrao.match(/\.[a-z0-9]+$/i) || [""])[0];
+  if (!escrito) return padrao;
+  // ele renomeou a faixa: o arquivo sai com o nome dele, extensão preservada
+  return escrito.replace(/[\\/:*?"<>|]/g, "-") + ext;
+}
+
+async function baixarFaixa(url, nome){
+  const r = await fetch(url);
+  if (!r.ok) return mostrar("erro", "esse arquivo não está mais no disco");
+  const blob = await r.blob();
+  // Chrome: deixa ELE escolher a pasta. Sem a API, cai no download normal.
+  if (window.showSaveFilePicker){
+    try{
+      const h = await window.showSaveFilePicker({suggestedName: nome});
+      const w = await h.createWritable();
+      await w.write(blob); await w.close();
+      return;
+    }catch(e){ if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = nome;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* BAIXAR TUDO — fala, música e efeitos numa tacada, SEM o Original (ele
+ * já tem o arquivo de origem). Pedido dele em 20/08: "tive que baixar cada
+ * stem manualmente um por um".
+ * Com showDirectoryPicker ele escolhe a pasta UMA vez e os arquivos caem
+ * lá dentro — em vez de uma janela de salvar por faixa. Sem a API (ou se
+ * ele cancelar a pasta), cai no download normal, um atrás do outro.
+ * Os nomes respeitam o que ele digitou no campo de cada faixa. */
+async function baixarTudo(){
+  const stems = MIX.faixas.filter(r => r.def && r.def.papel !== "antes" && r.def.baixar);
+  if (!stems.length) return mostrar("erro", "não há faixas pra baixar aqui.");
+
+  let pasta = null;
+  if (window.showDirectoryPicker){
+    try { pasta = await window.showDirectoryPicker({mode: "readwrite"}); }
+    catch(e){ if (e.name === "AbortError") return; }   // ele desistiu
+  }
+
+  let feitos = 0, falhas = [];
+  for (const reg of stems){
+    const nome = nomeDeArquivo(reg, reg.def.arquivo);
+    try {
+      const r = await fetch(reg.def.baixar);
+      if (!r.ok) throw new Error("não está mais no disco");
+      const blob = await r.blob();
+      if (pasta){
+        const h = await pasta.getFileHandle(nome, {create: true});
+        const w = await h.createWritable();
+        await w.write(blob); await w.close();
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = nome;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        await new Promise(ok => setTimeout(ok, 400));  // o Chrome enfileira
+      }
+      feitos++;
+      mostrar("ok", "baixando… " + feitos + "/" + stems.length + "  ·  " + nome);
+    } catch(e){
+      if (e.name === "AbortError") return;
+      falhas.push(nome);
+    }
+  }
+
+  const onde = pasta ? " na pasta que você escolheu" : "";
+  if (falhas.length) mostrar("erro", feitos + " de " + stems.length +
+    " baixadas" + onde + ". Falhou: " + falhas.join(", "));
+  else mostrar("ok", feitos + " faixa(s) baixadas" + onde +
+    " — sem o Original.");
+}
+
+function aplicarMix(){
+  const temSolo = MIX.faixas.some(f => f.solo);
+  MIX.faixas.forEach(f => {
+    const ouve = temSolo ? f.solo : !f.mudo;
+    f.linha.classList.toggle("calada", !ouve);
+    f.som.muted = !ouve;
+    f.som.volume = 1;
+  });
+}
+
+function sincronizarMix(forcar){
+  const m = mixMestre();
+  if (!m || !isFinite(m.currentTime)) return;
+  MIX.faixas.forEach(f => {
+    const dif = Math.abs(f.som.currentTime - m.currentTime);
+    if (forcar || dif > 0.25) f.som.currentTime = m.currentTime;
+    if (!m.paused && f.som.paused) f.som.play().catch(() => {});
+    if (m.paused && !f.som.paused) f.som.pause();
+  });
+}
+
+function ligarRelogio(){
+  const m = mixMestre();
+  ["play", "pause", "seeked", "ratechange"].forEach(ev =>
+    m.addEventListener(ev, () => sincronizarMix(true)));
+  cancelAnimationFrame(MIX.laco);
+  const laco = () => {
+    if (!$("#mixer").classList.contains("on")) return;
+    sincronizarMix(false);
+    MIX.faixas.forEach(pintarAgulhaFaixa);
+    const tocando = !mixMestre().paused;
+    MIX.faixas.forEach(f => { const b = f.linha.querySelector(".play");
+      if (b){ b.classList.toggle("on", tocando); b.textContent = tocando ? "❚❚" : "▶"; } });
+    MIX.laco = requestAnimationFrame(laco);
+  };
+  MIX.laco = requestAnimationFrame(laco);
+}
+
+function desmontarMixer(){
+  MIX.geracao++;                          // invalida montagem em andamento
+  cancelAnimationFrame(MIX.laco);
+  MIX.faixas.forEach(f => { f.som.pause(); f.som.removeAttribute("src"); });
+  MIX.faixas = [];
+  $("#mixerFaixas").innerHTML = "";
+  $("#mixer").classList.remove("on");
+  video.muted = false;
+  player.muted = false;
+}
+
+async function desenharFaixa(reg){
+  const cv = reg.canvas;
+  const W = cv.clientWidth || 240, H = 42;
+  cv.width = W * 2; cv.height = H * 2;
+  const g = cv.getContext("2d"); g.scale(2, 2);
+  g.fillStyle = "#141416"; g.fillRect(0, 0, W, H);
+  try{
+    const buf = await (await fetch(reg.def.ouvir)).arrayBuffer();
+    CTX_AUDIO = CTX_AUDIO || new (window.AudioContext || window.webkitAudioContext)();
+    const audio = await CTX_AUDIO.decodeAudioData(buf);
+    const dados = audio.getChannelData(0), passo = Math.max(1, Math.floor(dados.length / W));
+    const picos = [];
+    for (let x = 0; x < W; x++){
+      let p = 0;
+      const fim = Math.min((x + 1) * passo, dados.length);
+      for (let i = x * passo; i < fim; i += 8){ const v = Math.abs(dados[i]); if (v > p) p = v; }
+      picos.push(p);
+    }
+    const teto = Math.max(...picos) || 1;
+    reg.picos = picos.map(p => p / teto);
+  }catch(e){ reg.picos = null; }
+  pintarAgulhaFaixa(reg);
+}
+
+function pintarAgulhaFaixa(reg){
+  const cv = reg.canvas, W = cv.clientWidth || 240, H = 42;
+  const g = cv.getContext("2d");
+  g.setTransform(2, 0, 0, 2, 0, 0);
+  g.fillStyle = "#141416"; g.fillRect(0, 0, W, H);
+  const m = mixMestre();
+  const prog = (m && m.duration) ? m.currentTime / m.duration : 0;
+  if (reg.picos){
+    for (let x = 0; x < W; x++){
+      const alt = Math.max(1, reg.picos[x] * (H - 8));
+      g.fillStyle = (x / W <= prog) ? corTema("--accent") : "#9a9aa3";
+      g.fillRect(x, (H - alt) / 2, 1, alt);
+    }
+  } else {
+    g.fillStyle = "rgba(255,255,255,.10)"; g.fillRect(0, H / 2 - 1, W, 2);
+  }
+  g.fillStyle = "#fff";
+  g.fillRect(Math.max(0, prog * W - 1), 0, 2, H);
+}
+
+// ---- historico (16/08): acesso rapido ao que ja foi gerado, sem Explorer
+async function carregarHistorico(){
+  try{
+    const j = await (await fetch("/api/historico")).json();
+    const alvo = $("#histLista"); alvo.innerHTML = "";
+    const itens = j.historico || [];
+    if (!itens.length){ alvo.innerHTML = '<div class="dica">nada gerado ainda.</div>'; return; }
+    itens.forEach(h => {
+      const l = document.createElement("div"); l.className = "hist";
+      const rot = document.createElement("div");
+      rot.className = "arq"; rot.textContent = h.rotulo; rot.title = h.saida || "";
+      const qd = document.createElement("div");
+      qd.className = "quando"; qd.textContent = h.quando;
+      l.appendChild(qd); l.appendChild(rot);
+      if (h.saida && h.existe){
+        const ou = document.createElement("a");
+        ou.className = "baixar"; ou.href = "#"; ou.textContent = "ouvir";
+        ou.addEventListener("click", e => {
+          e.preventDefault();
+          // no histórico, "previa" só existe quando a saída é vídeo
+          abrirSaida({id: h.id, hist: true, video: !!h.previa,
+                      titulo: h.rotulo, temAntes: !!h.antes, lufs: h.lufs,
+                      tocar: true, separar: h.modo === "separar"});
+        });
+        const bx = document.createElement("a");
+        bx.className = "baixar"; bx.href = "/baixar-h?id=" + h.id;
+        bx.setAttribute("download", "");
+        bx.textContent = h.previa ? "baixar vídeo" : "baixar";
+        l.appendChild(ou); l.appendChild(bx);
+      } else {
+        const m = document.createElement("span"); m.className = "morto";
+        m.textContent = h.saida ? "arquivo apagado" : "voz na biblioteca";
+        l.appendChild(m);
+      }
+      alvo.appendChild(l);
+    });
+  }catch(e){ /* DUBX fora do ar: o card fica como esta */ }
+}
+$("#histCard").addEventListener("toggle", () => { if ($("#histCard").open) carregarHistorico(); });
+
+// ---- arquivo
+$("#solta").addEventListener("click", () => $("#arquivo").click());
+$("#arquivo").addEventListener("change", e => receber([...e.target.files]));
+["dragenter","dragover"].forEach(ev => $("#solta").addEventListener(ev, e => {
+  e.preventDefault(); $("#solta").classList.add("sobre");
+}));
+["dragleave","drop"].forEach(ev => $("#solta").addEventListener(ev, e => {
+  e.preventDefault(); $("#solta").classList.remove("sobre");
+}));
+$("#solta").addEventListener("drop", e => receber([...e.dataTransfer.files]));
+
+async function subir(f){
+  const r = await fetch("/api/enviar", {method:"POST", headers:{"X-Nome": f.name}, body: f});
+  return (await r.json()).arquivo;
+}
+
+async function receber(lista){
+  if (!lista.length) return;
+  try{
+    if (modo === "treinar"){
+      $("#soltaT").textContent = `enviando ${lista.length} arquivo(s)…`;
+      $("#soltaS").textContent = "";
+      arquivosTreino = [];
+      for (const f of lista) arquivosTreino.push(await subir(f));
+      $("#soltaT").textContent = `${arquivosTreino.length} arquivo(s) escolhido(s)`;
+      $("#soltaS").textContent = "clique em Treinar";
+      listarAmostras(arquivosTreino);
+    } else {
+      const f = lista[0];
+      $("#soltaT").textContent = "enviando…"; $("#soltaS").textContent = f.name;
+      enviado = await subir(f); nomeEnviado = f.name;
+      prepararFonte(f);            // onda do arquivo pra escolher o trecho
+      $("#soltaT").textContent = f.name;
+      $("#soltaS").textContent = /\.(mp4|mov|mkv|avi|mxf)$/i.test(f.name)
+        ? "vídeo — sai vídeo, mesma qualidade (sem recodificar) e o áudio novo"
+        : "pronto — clique em Gerar";
+    }
+    $("#solta").classList.add("cheio");
+    esconder();
+  }catch(e){
+    $("#soltaT").textContent = "falhou ao enviar"; $("#soltaS").textContent = "tente de novo";
+  }
+}
+
+// ---- gerar
+$("#gerar").addEventListener("click", async () => {
+  const p = {modo, lufs: parseInt($("#lufs").value)};
+  if (modo === "treinar"){
+    p.nome = $("#nomeVoz").value.trim();
+    if (!p.nome) return mostrar("erro", "dê um nome para a voz");
+    if (!arquivosTreino.length) return mostrar("erro", "envie os áudios da voz primeiro");
+    p.arquivos = arquivosTreino;
+    p.nivel = NIVEL;
+    // a amostra e o único arquivo que o motor padrão realmente OLHA
+    if ($("#amostra") && $("#amostra").value) p.amostra = $("#amostra").value;
+    // épocas só tem efeito no RVC, que só roda no nível Máxima
+    if (NIVEL === "maxima" && $("#c_epocas")) p.epocas = parseInt($("#c_epocas").value);
+  } else if (modo === "falar"){
+    p.texto = $("#texto").value.trim();
+    if (!p.texto) return mostrar("erro", "escreva o texto primeiro");
+    p.voz = $("#voz").value;
+    if (!p.voz) return mostrar("erro", "cadastre uma voz primeiro");
+  } else {
+    if (!enviado) return mostrar("erro", "escolha um áudio primeiro");
+    p.arquivo = enviado;
+    // só manda o trecho quando ele REALMENTE escolheu um pedaço
+    if (FONTE.dur && (FONTE.ini > .05 || FONTE.fim < FONTE.dur - .05)){
+      p.inicio = FONTE.ini; p.fim = FONTE.fim;
+    }
+    if (modo === "trocar"){
+      p.voz = $("#voz").value;
+      const v = vozes.find(x => x.nome === p.voz);
+      if (!v) return mostrar("erro", "escolha uma voz");
+      // só o RVC exige fichário; o Seed-VC roda com a amostra
+      if ($("#c_motor_vc") && $("#c_motor_vc").value === "rvc" && !v.pode_trocar)
+        return mostrar("erro", "essa voz não tem o fichário do RVC — troque o Motor "
+                       + "para Seed-VC, ou treine ela de novo no nível Máxima");
+      p.tom = parseInt($("#tom").value);
+      p.f0 = $("#f0").value;
+    }
+  }
+  if (modo === "separar" && $("#c_motor_diar") && $("#c_motor_diar").value === "roteiro"){
+    p.roteiro = $("#roteiroTxt").value;
+  }
+  (CONTROLES[modo] || []).forEach(c => { const el = $("#c_"+c.id); if (el){
+    if (c.tipo === "marcar"){ p[c.id] = !!el.checked; return; }
+    const v = el.value, n = parseFloat(v);
+    // escolha pode carregar texto ("pt"/"en") — nao virar NaN no JSON
+    p[c.id] = (c.tipo === "escolha" && isNaN(n)) ? v : n;
+  }});
+
+  $("#gerar").disabled = true;
+  $("#gerar").textContent = (modo === "treinar") ? "treinando…" : "gerando…";
+  $("#saida").classList.remove("on");
+  mostrar("info", modo === "treinar"
+    ? (NIVEL === "rapida" ? "guardando a amostra — é questão de segundos"
+       : NIVEL === "boa" ? "estudando a voz — uns 5 minutos"
+       : "treino completo — isso leva horas, pode deixar rodando")
+    : "processando — a primeira vez carrega o modelo e demora mais");
+
+  try{
+    const r = await fetch("/api/processar", {method:"POST",
+      headers:{"Content-Type":"application/json"}, body: JSON.stringify(p)});
+    const j = await r.json();
+    if (j.erro) throw new Error(j.erro);
+    TAREFA_VIVA = j.tarefa;              // quem o Cancelar vai parar
+    $("#cancelar").hidden = false;
+    acompanhar(j.tarefa, modo);   // congelado no disparo: trocar de aba
+                                  // enquanto roda mudava o resultado
+  }catch(e){
+    mostrar("erro", e.message); soltarBotao();
+  }
+});
+
+function soltarBotao(){
+  $("#gerar").disabled = false;
+  $("#gerar").textContent = ACAO[modo] || "Gerar";
+  TAREFA_VIVA = null;
+  $("#cancelar").hidden = true;
+}
+
+/* CANCELAR de verdade (20/09/2026): o servidor mata o processo filho E OS
+ * NETOS — o separador sobe um python que sobe outro, e matando so o pai o
+ * neto ficava com a GPU na mao. Sem "tem certeza?": a rede de seguranca
+ * dele e refazer, nao confirmar. */
+let TAREFA_VIVA = null;
+$("#cancelar").addEventListener("click", async () => {
+  $("#cancelar").disabled = true;
+  $("#cancelar").textContent = "parando…";
+  try{
+    await fetch("/api/cancelar", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(TAREFA_VIVA ? {tarefa: TAREFA_VIVA} : {tudo:true})});
+  }catch(e){ /* servidor mudo: o acompanhar() ja avisa */ }
+  $("#cancelar").disabled = false;
+  $("#cancelar").textContent = "Cancelar";
+});
+
+async function acompanhar(t, modoTarefa){
+  // Treino pode levar HORAS (500 épocas ≈ 8 h já aconteceu, 16/08) — enquanto
+  // o servidor disser "rodando", NÃO existe teto. O teto fixo antigo (4 h)
+  // mentiu "algo travou" com o treino vivo e terminando bem. Só desiste se o
+  // servidor sumir de verdade (2 min seguidos sem resposta válida).
+  let mortas = 0;
+  for (;;){
+    await new Promise(r => setTimeout(r, 1000));
+    let j;
+    try { j = await (await fetch("/api/estado?t=" + t)).json(); }
+    catch(e){
+      if (++mortas >= 120){
+        mostrar("erro", "o servidor parou de responder — se era treino, confira a lista de vozes daqui a pouco: ele pode terminar e salvar sozinho");
+        soltarBotao(); return;
+      }
+      continue;
+    }
+    if (j.estado === "desconhecido"){
+      // servidor reiniciado no meio: a tarefa sumiu da memória dele
+      if (++mortas >= 120){
+        mostrar("erro", "o servidor foi reiniciado no meio — se era treino, confira a lista de vozes: o resultado pode ter sido salvo mesmo assim");
+        soltarBotao(); return;
+      }
+      continue;
+    }
+    mortas = 0;
+
+    if (j.estado === "rodando" && j.mensagem){
+      mostrar("info", j.etapa ? `passo ${j.etapa} de ${j.de} — ${j.mensagem}` : j.mensagem);
+    }
+    if (j.estado === "pronto"){
+      plim();
+      if (j.treino){
+        mostrar("info", `voz "${j.nome}" pronta — já aparece na lista dos outros modos`);
+        arquivosTreino = []; $("#nomeVoz").value = "";
+        listarAmostras([]);
+        await carregarVozes();
+      } else {
+        if (j.aviso) mostrar("erro", j.aviso); else esconder();
+        abrirSaida({id: t, hist: false,
+                    video: /\.(mp4|mov|mkv|avi|mxf)$/i.test(j.nome || ""),
+                    titulo: j.nome || "", temAntes: !!j.antes, lufs: j.lufs,
+                    separar: (modoTarefa || modo) === "separar"});
+      }
+      if ($("#histCard").open) carregarHistorico();
+      if (window.montarGeracoes) montarGeracoes(false);
+      soltarBotao(); return;
+    }
+    if (j.estado === "cancelado"){ mostrar("info", "cancelado"); soltarBotao(); return; }
+    if (j.estado === "erro"){ mostrar("erro", j.mensagem || "falhou"); soltarBotao(); return; }
+  }
+}
+
+/* Esc = freio de emergencia. Ele relatou audio tocando sem conseguir parar;
+ * mesmo com a corrida do mixer corrigida, uma tecla que cala tudo e barato e
+ * resolve qualquer caso que escape. */
+document.addEventListener("keydown", e => { if (e.key === "Escape") pararTudo(); });
+
+document.querySelectorAll(".aba").forEach(a => a.addEventListener("click", () => {
+  pararTudo();                       // trocar de aba nao deixa som orfao tocando
+  modo = a.dataset.modo; esconder(); $("#saida").classList.remove("on"); aplicarModo();
+}));
+$("#voz").addEventListener("change", atualizarDicaVoz);
+$("#lufs").addEventListener("input", e => $("#dLufs").textContent = e.target.value);
+$("#tom").addEventListener("input", e => $("#dTom").textContent = e.target.value);
+
+// Rede de seguranca: se o Chrome ignorar o --window-size (acontece quando ele
+// restaura o tamanho de uma janela anterior), a propria pagina se redimensiona.
+// So age quando esta absurdamente grande, pra nao atrapalhar quem quer maximizar.
+if (window.outerWidth > 760 || window.outerHeight > 1150) {
+  try { window.resizeTo(520, 900); } catch (e) {}
+}
+
+document.getElementById("logCab").addEventListener("click", () => {
+  const l = document.getElementById("log");
+  const aberto = !l.classList.contains("oculto");
+  l.classList.toggle("oculto", aberto);
+  document.getElementById("logChev").textContent = aberto ? "▸" : "▾";
+});
+
+/* --------------------------------------------------- seletor de nível */
+function pintarNivel(){
+  document.querySelectorAll(".nivel").forEach(b =>
+    b.classList.toggle("on", b.dataset.nivel === NIVEL));
+  const d = $("#dicaNivel");
+  if (d) d.innerHTML = NIVEIS[NIVEL] || "";
+  // Épocas só existe no RVC — nos outros níveis o controle não faz nada
+  const ep = $("#c_epocas");
+  if (ep){
+    const linha = ep.closest(".ctrl");
+    if (linha) linha.classList.toggle("oculto", NIVEL !== "maxima");
+  }
+  const cl = $("#controlesLista");
+  if (cl) cl.classList.toggle("oculto", modo === "treinar" && NIVEL !== "maxima");
+}
+document.querySelectorAll(".nivel").forEach(b => {
+  b.addEventListener("click", () => { NIVEL = b.dataset.nivel; pintarNivel(); });
+});
+
+/* a lista de amostras só aparece quando há mais de um arquivo pra escolher */
+function listarAmostras(nomes){
+  const sel = $("#amostra"); if (!sel) return;
+  sel.innerHTML = "";
+  nomes.forEach(cam => {
+    const o = document.createElement("option");
+    o.value = cam; o.textContent = cam.split(/[\\/]/).pop();
+    sel.appendChild(o);
+  });
+  $("#zonaAmostra").classList.toggle("oculto", nomes.length < 2);
+}
+
+/* ------------------------------------------------ minhas vozes (24/08)
+   Renomear e apagar, dentro dos Ajustes. Pedido dele: "coloca lá nas
+   configurações pra eu poder editar minhas vozes". */
+async function desenhaVozesConfig(){
+  const caixa = $("#vozesConfig"); if (!caixa) return;
+  caixa.innerHTML = "";
+  let lista = [];
+  try { lista = (await (await fetch("/api/vozes")).json()).vozes || []; }
+  catch(e){ caixa.textContent = "não consegui carregar."; return; }
+  if (!lista.length){ caixa.textContent = "nenhuma voz cadastrada ainda."; return; }
+  lista.forEach(v => {
+    const linha = document.createElement("div");
+    linha.className = "vzitem";
+    const marca = v.pode_trocar ? "RVC + Seed-VC"
+                : v.pode_trocar_seedvc ? "Seed-VC afinado" : "só amostra";
+    linha.innerHTML = `<div class="vznome"></div><div class="vzmarca">${marca}</div>`;
+    linha.firstChild.textContent = v.nome;
+    const bRen = document.createElement("div");
+    bRen.className = "hbt"; bRen.textContent = "✎"; bRen.title = "renomear";
+    const bDel = document.createElement("div");
+    bDel.className = "hbt"; bDel.textContent = "✕"; bDel.title = "apagar do PC";
+    bRen.addEventListener("click", () => {
+      const novo = prompt("Novo nome para \"" + v.nome + "\":", v.nome);
+      if (!novo || novo === v.nome) return;
+      fetch("/api/renomear-voz", {method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({de: v.nome, para: novo.trim()})})
+        .then(r => r.json()).then(r => {
+          if (r.erro) mostrar("erro", r.erro);
+          ASSINATURA_VOZES = null; carregarVozes(); desenhaVozesConfig();
+        });
+    });
+    let confirmando = false;
+    bDel.addEventListener("click", () => {
+      if (!confirmando){ confirmando = true; bDel.textContent = "apagar?";
+        bDel.style.color = "var(--danger)";
+        setTimeout(() => { confirmando = false; bDel.textContent = "✕"; bDel.style.color = ""; }, 4000);
+        return; }
+      fetch("/api/apagar-voz", {method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({nome: v.nome})})
+        .then(r => r.json()).then(r => {
+          if (r.erro) mostrar("erro", r.erro);
+          ASSINATURA_VOZES = null; carregarVozes(); desenhaVozesConfig();
+        });
+    });
+    linha.appendChild(bRen); linha.appendChild(bDel);
+    caixa.appendChild(linha);
+  });
+}
+$("#espacoCard").addEventListener("toggle", () => {
+  if ($("#espacoCard").open) desenhaVozesConfig();
+});
+
+carregarVozes(); aplicarModo(); pintarNivel();
+setInterval(carregarVozes, 15000);   // voz treinada no plugin aparece aqui
+</script>
+
+<script>
+/* TEMA POR FEATURE + POPUP DE MODOS (clone do painel, 25/08).
+   Roda DEPOIS do script principal e so ACRESCENTA listeners: nenhuma
+   linha do app original foi tocada. Cada modo tem cor propria; as
+   "paradas de mexer" (slider, onda) seguem no verde --ok. */
+(function () {
+  var CORES = {
+    melhorar: ["Melhorar", "nivela e reconstrói a voz com o Sidon", "#30d158", "#06230f", "rgba(48,209,88,.10)"],
+    trocar:   ["Trocar voz", "outra voz na fala, sem tocar o original", "#0a84ff", "#ffffff", "rgba(10,132,255,.10)"],
+    separar:  ["Separar", "voz, música e efeitos em faixas", "#bf5af2", "#ffffff", "rgba(191,90,242,.10)"],
+    treinar:  ["Treinar", "cria uma voz nova com o material", "#ff453a", "#ffffff", "rgba(255,69,58,.10)"],
+    dublar:   ["Dublar", "traduz e fala no outro idioma", "#ff9f0a", "#241503", "rgba(255,159,10,.10)"],
+    falar:    ["Falar", "texto vira fala com a voz treinada", "#ffd60a", "#241f03", "rgba(255,214,10,.10)"]
+  };
+  var lista = document.getElementById("modoLista");
+  var picker = document.getElementById("modoPicker");
+  var nome = document.getElementById("modoNome");
+  var desc = document.getElementById("modoDesc");
+  var chev = document.getElementById("modoChev");
+  var abas = document.querySelectorAll(".aba");
+
+  function pinta(modo) {
+    var c = CORES[modo];
+    if (!c) return;
+    nome.textContent = c[0];
+    desc.textContent = c[1];
+    var rz = document.documentElement.style;
+    rz.setProperty("--accent", c[2]);
+    rz.setProperty("--sobre", c[3]);
+    rz.setProperty("--wash", c[4]);
+  }
+  function fecha() { lista.className = "abas oculto"; chev.textContent = "▾"; }
+
+  for (var i = 0; i < abas.length; i++) {
+    (function (a) {
+      var c = CORES[a.dataset.modo];
+      if (c) a.firstChild.style.background = c[2];   // a bolinha da feature
+      a.addEventListener("click", function () { pinta(a.dataset.modo); fecha(); });
+    })(abas[i]);
+  }
+  picker.addEventListener("click", function (ev) {
+    ev.stopPropagation();
+    var aberto = lista.className.indexOf("oculto") < 0;
+    lista.className = "abas" + (aberto ? " oculto" : "");
+    chev.textContent = aberto ? "▾" : "▴";
+  });
+  document.addEventListener("click", function (ev) {
+    if (lista.className.indexOf("oculto") >= 0) return;
+    for (var e = ev.target; e; e = e.parentNode) if (e === lista) return;
+    fecha();
+  });
+
+  // pinta o modo que o app abriu (o script principal ja marcou .on)
+  for (var j = 0; j < abas.length; j++)
+    if (abas[j].className.indexOf("on") >= 0) pinta(abas[j].dataset.modo);
+})();
+</script>
+<script>
+/* GERACOES (07/10) — pedido dele: "menu grudado no canto esquerdo e do lado
+ * direito as Generations, pra eu não depender de ver uma por vez e comparar
+ * uma com a outra". Le o Historico e monta um cartao por geracao, de QUALQUER
+ * feature: video original MUDO como imagem + faixas com M/S/▶ e onda.
+ * Separar mostra todos os stems (/api/faixas); as outras features mostram
+ * Original x Resultado. Cada cartao tem o proprio relogio; play num pausa os
+ * outros. O cartao veste a COR DA FEATURE que gerou (separar = roxo, melhorar
+ * = verde...) — nao a do modo aberto agora: "se eu trocar, tem que continuar
+ * verde, porque aquela generation foi do melhorar".
+ * ✕ esconde (nao apaga nada do disco); Ctrl+Z traz de volta — a rede de
+ * seguranca dele e o Ctrl+Z, nada de caixa de confirmacao.
+ * So ACRESCENTA: a mesa de mistura da saida (MIX) continua intacta. */
+(function(){
+  const GER = {cartoes: [], laco: 0, assinatura: "", desfazer: []};
+  const MAX = 12;
+  // mesma paleta do seletor de modos (CORES do script de tema)
+  const FEAT = {
+    melhorar: ["Melhorar", "#30d158", "#06230f", "Melhorado"],
+    trocar:   ["Trocar voz", "#0a84ff", "#ffffff", "Voz trocada"],
+    separar:  ["Separar", "#bf5af2", "#ffffff", ""],
+    treinar:  ["Treinar", "#ff453a", "#ffffff", "Resultado"],
+    dublar:   ["Dublar", "#ff9f0a", "#241503", "Dublado"],
+    falar:    ["Falar", "#ffd60a", "#241f03", "Fala"],
+    legenda:  ["Legenda", "#8e8e97", "#ffffff", "Resultado"],
+    ambientar:["Ambientar", "#64d2ff", "#04212b", "Ambientado"],
+    fluxo:    ["Fluxo", "#8e8e97", "#ffffff", "Resultado"]
+  };
+  function featDe(modo){
+    const k = String(modo || "").split("_")[0];
+    return FEAT[k] || [k || "Geração", "#8e8e97", "#ffffff", "Resultado"];
+  }
+  // geracao antiga (antes de 07/10) nao tem "modelo": tira do rotulo se der
+  function modeloDe(h){
+    if (h.modelo) return h.modelo;
+    const m = /—\s*([a-z0-9-]+)\s*·/i.exec(h.rotulo || "");
+    return m ? m[1] : "";
+  }
+
+  async function picosDe(url, W){
+    try{
+      const buf = await (await fetch(url)).arrayBuffer();
+      CTX_AUDIO = CTX_AUDIO || new (window.AudioContext || window.webkitAudioContext)();
+      const a = await CTX_AUDIO.decodeAudioData(buf);
+      const d = a.getChannelData(0), passo = Math.max(1, Math.floor(d.length / W));
+      const p = [];
+      for (let x = 0; x < W; x++){
+        let v = 0; const fim = Math.min((x + 1) * passo, d.length);
+        for (let i = x * passo; i < fim; i += 8){ const s = Math.abs(d[i]); if (s > v) v = s; }
+        p.push(v);
+      }
+      const teto = Math.max(...p) || 1;
+      return p.map(v => v / teto);
+    }catch(e){ return null; }
+  }
+
+  function pinta(reg, c){
+    const vid = c.relogio, cv = reg.canvas, W = cv.clientWidth || 240, H = 34;
+    if (cv.width !== W * 2){ cv.width = W * 2; cv.height = H * 2; }
+    const g = cv.getContext("2d");
+    g.setTransform(2, 0, 0, 2, 0, 0);
+    g.fillStyle = "#141416"; g.fillRect(0, 0, W, H);
+    const prog = vid.duration ? vid.currentTime / vid.duration : 0;
+    if (reg.picos){
+      const n = reg.picos.length;
+      for (let x = 0; x < W; x++){
+        const alt = Math.max(1, reg.picos[Math.floor(x / W * n)] * (H - 6));
+        g.fillStyle = (x / W <= prog) ? c.cor : "#9a9aa3";
+        g.fillRect(x, (H - alt) / 2, 1, alt);
+      }
+    } else { g.fillStyle = "rgba(255,255,255,.10)"; g.fillRect(0, H / 2 - 1, W, 2); }
+    g.fillStyle = "#fff"; g.fillRect(Math.max(0, prog * W - 1), 0, 2, H);
+  }
+
+  function aplica(c){
+    const solo = c.faixas.some(f => f.solo);
+    c.faixas.forEach(f => {
+      const ouve = solo ? f.solo : !f.mudo;
+      f.linha.classList.toggle("calada", !ouve);
+      f.som.muted = !ouve;
+      if (f.seco){
+        const d = c.recon ?? 1;
+        f.som.volume = Math.sqrt(d);
+        f.seco.volume = Math.sqrt(1 - d);
+        f.seco.muted = !ouve;
+      }
+    });
+  }
+
+  function sincroniza(c, forcar){
+    const v = c.relogio;
+    c.faixas.forEach(f => {
+      [f.som, f.seco].forEach(s => {
+        if (!s) return;
+        // seco e Sidon somados: tolerancia bem menor que a das faixas soltas, senao volta a voz dupla
+        const tol = f.seco ? 0.04 : 0.25;
+        if (forcar || Math.abs(s.currentTime - v.currentTime) > tol) s.currentTime = v.currentTime;
+        if (!v.paused && s.paused) s.play().catch(() => {});
+        if (v.paused && !s.paused) s.pause();
+      });
+    });
+  }
+
+  function solta(c){
+    c.relogio.pause();
+    c.faixas.forEach(f => { [f.som, f.seco].forEach(s => { if (s){ s.pause(); s.removeAttribute("src"); } }); });
+  }
+
+  function desmonta(){
+    cancelAnimationFrame(GER.laco);
+    GER.cartoes.forEach(solta);
+    GER.cartoes = [];
+    $("#gerGrade").innerHTML = "";
+  }
+
+  async function faixasDe(h){
+    if (String(h.modo).startsWith("separar")){
+      try {
+        const j = await (await fetch("/api/faixas?id=" + encodeURIComponent(h.id))).json();
+        return {faixas: (j && j.faixas) || [], base: j && j.base};
+      } catch(e){ return {faixas: []}; }
+    }
+    const id = encodeURIComponent(h.id), fs = [];
+    // 05/11: Melhorar com seco + Sidon guardados → UMA faixa; o slider mistura os dois ao vivo
+    if (h.partes){
+      const vidAntes = h.antes && /\.(mp4|mov|mkv|webm|avi)$/i.test(h.antes) ? "/audio-h?id=" + id + "&papel=antes" : null;
+      fs.push({papel: "depois", nome: featDe(h.modo)[3], ouvir: "/audio-partes?id=" + id + "&lado=molhado",
+               seco: "/audio-partes?id=" + id + "&lado=seco"});
+      return {faixas: fs, video: vidAntes, recon: true};
+    }
+    // outras features: Original x Resultado (a previa e o wav quando a saida e video)
+    if (h.antes) fs.push({papel: "antes", nome: "Original", ouvir: "/audio-h?id=" + id + "&papel=antes",
+                          video: /\.(mp4|mov|mkv|webm|avi)$/i.test(h.antes)});
+    fs.push({papel: "depois", nome: featDe(h.modo)[3], ouvir: "/audio-h?id=" + id});
+    return {faixas: fs};
+  }
+
+  async function esconder(c){
+    try {
+      await fetch("/api/geracao-ocultar", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: c.id, ocultar: true})});
+    } catch(e){ return; }
+    GER.desfazer.push(c.id);
+    solta(c);
+    GER.cartoes = GER.cartoes.filter(o => o !== c);
+    c.el.remove();
+    GER.assinatura = GER.cartoes.map(o => o.id).join(",");
+    try { mostrar("info", "geração escondida da grade — Ctrl+Z traz de volta (nada foi apagado do disco)"); } catch(e){}
+  }
+
+  async function desfazer(){
+    const id = GER.desfazer.pop();
+    if (!id) return false;
+    try {
+      await fetch("/api/geracao-ocultar", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id, ocultar: false})});
+    } catch(e){ return false; }
+    await montarGeracoes(true);
+    return true;
+  }
+
+  document.addEventListener("keydown", e => {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z" || e.shiftKey) return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    if (!GER.desfazer.length) return;
+    e.preventDefault();
+    desfazer();
+  });
+
+  async function cartao(h){
+    const {faixas, base, video: vidAntes, recon} = await faixasDe(h);
+    if (!faixas.length) return null;
+    const [nomeFeat, cor, sobre] = featDe(h.modo);
+
+    const el = document.createElement("div");
+    el.className = "cartao ger";
+    // o cartao inteiro veste a cor da feature (M/S acesos, onda tocada)
+    el.style.setProperty("--accent", cor);
+    el.style.setProperty("--sobre", sobre);
+    el.innerHTML =
+      '<div class="ger-cab"><span class="ger-feat"></span><span class="ger-modelo"></span>' +
+      '<span class="ger-nome"></span><span class="ger-quando"></span>' +
+      '<button class="ger-x" title="esconder esta geração (Ctrl+Z traz de volta)">✕</button></div>' +
+      '<video controls playsinline preload="metadata"></video>' +
+      '<div class="ger-faixas"></div>';
+    el.querySelector(".ger-feat").textContent = nomeFeat;
+    el.querySelector(".ger-modelo").textContent = modeloDe(h);
+    el.querySelector(".ger-nome").textContent = base || (h.rotulo || "").split(" — ")[0];
+    el.querySelector(".ger-quando").textContent = h.quando || "";
+
+    const vid = el.querySelector("video");
+    vid.muted = true;                       // imagem so; o som vem das faixas
+    const orig = faixas.find(f => f.papel === "antes");
+    let relogio = vid;
+    if (orig && orig.video) vid.src = orig.ouvir;
+    else if (vidAntes) vid.src = vidAntes;
+    else {
+      // sem video (audio puro, ou Falar): o relogio vira um <audio> mudo
+      vid.style.display = "none";
+      relogio = new Audio(); relogio.muted = true; relogio.preload = "auto";
+      relogio.src = faixas[0].ouvir;
+    }
+
+    const c = {id: h.id, el, video: vid, relogio, faixas: [], cor};
+    el.querySelector(".ger-x").addEventListener("click", () => esconder(c));
+    const lista = el.querySelector(".ger-faixas");
+    faixas.forEach(f => {
+      const linha = document.createElement("div");
+      linha.className = "faixa";
+      linha.innerHTML =
+        '<div class="cabeca"><div class="nomeF"></div><div class="bts">' +
+        '<button class="bt mudo" title="mudo">M</button>' +
+        '<button class="bt solo" title="só esta">S</button>' +
+        '<button class="bt play" title="tocar / pausar (sem subir até o player)">▶</button></div></div>' +
+        '<canvas></canvas>';
+      linha.querySelector(".nomeF").textContent = f.nome;
+      lista.appendChild(linha);
+      const som = new Audio(); som.preload = "auto"; som.src = f.ouvir;
+      let seco = null;
+      if (f.seco){ seco = new Audio(); seco.preload = "auto"; seco.src = f.seco; }
+      const reg = {def: f, linha, som, seco, mudo: false, solo: false,
+                   canvas: linha.querySelector("canvas"), picos: null};
+      c.faixas.push(reg);
+      linha.querySelector(".mudo").addEventListener("click", e => {
+        reg.mudo = !reg.mudo; e.currentTarget.classList.toggle("on", reg.mudo); aplica(c);
+      });
+      linha.querySelector(".solo").addEventListener("click", e => {
+        reg.solo = !reg.solo; e.currentTarget.classList.toggle("on", reg.solo); aplica(c);
+      });
+      linha.querySelector(".play").addEventListener("click", () => {
+        if (relogio.paused) relogio.play().catch(() => {}); else relogio.pause();
+      });
+      reg.canvas.addEventListener("click", e => {
+        const r = reg.canvas.getBoundingClientRect();
+        if (!relogio.duration || !r.width) return;
+        relogio.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * relogio.duration;
+        sincroniza(c, true);
+      });
+      picosDe(f.ouvir, 400).then(p => { reg.picos = p; pinta(reg, c); });
+    });
+
+    if (recon){
+      // RECONSTRUCAO AO VIVO (05/11, ele: «uma faixa so e o slider embaixo, vou brincando com o slider enquanto o
+      // video vai passando»). Toca seco + Sidon juntos (ja alinhados no servidor) e o slider so muda o volume de
+      // cada um — potencia constante, pra 50% nao soar mais baixo. Soltou o slider: o arquivo da geracao e
+      // regravado nessa dose (~1 s), entao o baixar/Premiere levam o que ele ouviu.
+      const caixa = document.createElement("div");
+      caixa.className = "ger-recon";
+      caixa.innerHTML = '<span class="rot">Reconstrução</span><input type="range" min="0" max="100" step="1">' +
+                        '<span class="val"></span><span class="est"></span>';
+      el.appendChild(caixa);
+      const sl = caixa.querySelector("input"), val = caixa.querySelector(".val"), est = caixa.querySelector(".est");
+      sl.value = (h.reconstrucao ?? 100);
+      c.recon = Number(sl.value) / 100;
+      const mostra = () => { val.textContent = sl.value + "%"; };
+      mostra();
+      sl.addEventListener("input", () => { c.recon = Number(sl.value) / 100; mostra(); aplica(c); });
+      let pedido = 0;
+      sl.addEventListener("change", async () => {
+        const meu = ++pedido;
+        est.textContent = "gravando…";
+        try {
+          const r = await fetch("/api/remisturar", {method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id: h.id, dose: Number(sl.value)})});
+          const j = await r.json();
+          if (meu !== pedido) return;
+          est.textContent = (r.ok && j.ok) ? "salvo" : "erro";
+          if (!(r.ok && j.ok)) try { mostrar("erro", "reconstrução: " + (j.erro || "falhou")); } catch(e){}
+        } catch(e){ if (meu === pedido) est.textContent = "erro"; }
+      });
+    }
+
+    // um cartao toca por vez: dar play aqui pausa os outros (e a saida principal)
+    relogio.addEventListener("play", () => {
+      GER.cartoes.forEach(o => { if (o !== c) o.relogio.pause(); });
+      try { if (typeof player !== "undefined") player.pause(); } catch(e){}
+      try { if (typeof video !== "undefined") video.pause(); } catch(e){}
+      try { MIX.faixas.forEach(f => f.som.pause()); } catch(e){}
+      sincroniza(c, true);
+    });
+    ["pause", "seeked", "ratechange", "ended"].forEach(ev => relogio.addEventListener(ev, () => sincroniza(c, true)));
+    aplica(c);
+    return c;
+  }
+
+  // o que entra na grade: separar so o item-BASE (o que tem "antes"; as vozes
+  // 2..N sao filhas dele); as outras features, tudo que tem arquivo no disco.
+  function entra(h){
+    if (h.oculta || h.existe === false || !h.saida) return false;
+    if (String(h.modo).startsWith("treinar")) return false;
+    if (String(h.modo).startsWith("separar")) return !!h.antes;
+    return true;
+  }
+
+  async function montarGeracoes(forcar){
+    let hist = [];
+    try { hist = (await (await fetch("/api/historico")).json()).historico || []; }
+    catch(e){ return; }
+    const bases = hist.filter(entra).slice(0, MAX);
+    document.body.classList.toggle("com-geracoes", bases.length > 0);
+    const assin = bases.map(h => h.id).join(",");
+    if (!forcar && assin === GER.assinatura) return;   // nada novo: nao derruba o que esta tocando
+    GER.assinatura = assin;
+    desmonta();
+    for (const h of bases){
+      const c = await cartao(h);
+      if (!c) continue;
+      GER.cartoes.push(c);
+      $("#gerGrade").appendChild(c.el);
+    }
+    const laco = () => {
+      GER.cartoes.forEach(c => {
+        if (!c.relogio.paused) sincroniza(c, false);
+        c.faixas.forEach(f => pinta(f, c));
+        const tocando = !c.relogio.paused;
+        c.faixas.forEach(f => { const b = f.linha.querySelector(".play");
+          if (b){ b.classList.toggle("on", tocando); b.textContent = tocando ? "❚❚" : "▶"; } });
+      });
+      GER.laco = requestAnimationFrame(laco);
+    };
+    GER.laco = requestAnimationFrame(laco);
+  }
+
+  window.montarGeracoes = montarGeracoes;
+  montarGeracoes(true);
+  // geracao nova (aqui ou pelo painel do Premiere) aparece sozinha
+  setInterval(() => montarGeracoes(false), 8000);
+})();
+</script>
+</body>
+</html>

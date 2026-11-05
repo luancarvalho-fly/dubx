@@ -1,0 +1,9 @@
+{
+    "nome":  "Hall / Igreja",
+    "descricao":  "espaço grande e nobre — reverb longo e cheio",
+    "ir":  "hall.wav",
+    "wet":  0.6,
+    "pre":  "highpass=f=90",
+    "pos":  "",
+    "cena":  true
+}

@@ -1,0 +1,1343 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    /* paleta de superficie do DECUPZ (medida no CSS dele) */
+    --bg:#0e0e11; --card:#17171b; --elevated:#212127;
+    --elevated-2:#2b2b33;
+    --hairline:rgba(255,255,255,.07); --hairline-forte:rgba(255,255,255,.14);
+    --text:#ececf0; --muted:#9a9aa3; --faint:#6c6c76;
+    --disabled:#5b5b63; --accent:#30d158; --sobre:#06230f; --wash:rgba(48,209,88,.10);
+    --acao-foco:#0d5223; --ok:#30d158; --danger:#ff453a; --header:#8e8e97;
+  }
+  *{box-sizing:border-box}
+  .oculto{display:none !important}
+
+  html{color-scheme:dark}
+  html,body{height:100%; margin:0; padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"SF Pro Text","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    font-size:12.5px; line-height:1.5;
+    overflow-y:auto; overflow-x:hidden;
+  }
+  .app{padding:16px 14px 28px}
+
+  /* ⚠️ REGRAS DA CASA (todas pagas com sangue neste host):
+     - NENHUM combinador (nem >, nem +, nem descendente) — classe direta sempre
+     - todo controle e <div role=button>: o UXP ignora background em <button>
+     - raio em px inteiro e <= metade da menor dimensao (99px pintou triangulo)
+     - range/checkbox nativos nao se estilizam: slider e feito de celulas de
+       div (.fxs) e o checkbox e um interruptor de div (.cxpele)
+     - nada de position:absolute, box-shadow, transition — pintor nao provado
+     - .value de campo vazio e NULL: ler sempre via texto(el) */
+
+  /* logo fora de card, sozinha ("a logo pode ficar sozinha, na parte
+     de cima" — 23/08) */
+  .logo-linha{display:flex; align-items:center; margin:0 2px 10px}
+  .logo-nome{font-size:15px; font-weight:700; letter-spacing:-.01em;
+             color:var(--text)}
+
+  /* chip do contador de clipes, a esquerda da engrenagem */
+  .chip-clipes{display:flex; align-items:center; height:26px; padding:0 10px;
+               background:var(--elevated); border:1px solid var(--hairline);
+               border-radius:13px; font-size:11px; font-weight:600;
+               color:var(--muted); cursor:pointer; margin-right:8px}
+  .chip-clipes:hover{color:var(--text)}
+  .chip-clipes:focus{border-color:var(--accent)}
+
+  /* o botao de analisar, pequeno e centrado ENTRE os cards */
+  .analisar-linha{display:flex; justify-content:center; margin-bottom:12px}
+  .analisar{flex:0 0 auto; height:32px; line-height:30px; padding:0 18px;
+            background:var(--card); border:1px solid var(--hairline);
+            border-radius:16px; color:var(--text); font-size:12px;
+            font-weight:600; cursor:pointer; text-align:center}
+  .analisar:hover{background:var(--elevated)}
+  .analisar:focus{border-color:var(--accent)}
+
+  /* dropdown da lista de clipes (abre pelo chip) */
+  .painel-clipes{background:var(--card); border:1px solid var(--hairline);
+                 border-radius:14px; padding:4px 14px 10px; margin-bottom:12px}
+
+  /* REGISTRO sem card: so a palavra + setinha, na cor do fundo */
+  .registro-linha{display:flex; align-items:center; padding:10px 4px;
+                  cursor:pointer; border:1px solid rgba(0,0,0,0);
+                  border-radius:8px}
+  .registro-linha:focus{border-color:var(--accent)}
+
+  /* MOLDURA DE SELECT: o select nativo IGNORA border-radius no pintor do
+     UXP (cantos quadrados no print de 23/08). A moldura vira um DIV — div
+     pinta certo — e o select fica nu por dentro (.selnu, posto pelo JS). */
+  /* DROPDOWN PROPRIO: o pintor do UXP pinta o miolo de select/input de
+     PRETO ignorando background (prints de 24/08 — "card triplicado").
+     A caixa e a lista sao DIVs; o select real vive escondido dentro. */
+  .selwrap{display:flex; align-items:center; background:var(--elevated);
+           border:1px solid rgba(0,0,0,0); border-radius:9px; flex:1;
+           height:31px; padding:0 10px; cursor:pointer; position:relative}
+  .selwrap:focus{border-color:var(--accent)}
+  .selrot{flex:1; font-size:12px; overflow:hidden; white-space:nowrap;
+          text-overflow:ellipsis}
+  .selseta{flex:0 0 auto; color:var(--muted); font-size:11px; margin-left:8px}
+  .sellista{position:absolute; top:100%; left:0; right:0; margin-top:4px;
+            background:var(--card); border:1px solid rgba(255,255,255,.16);
+            border-radius:12px; padding:4px; z-index:60}
+  .selitem{padding:8px 10px; border-radius:8px; font-size:12px; cursor:pointer}
+  .selitem:hover{background:var(--elevated)}
+  /* transform/scale: IGNORADOS pelo pintor (provado no print de 24/08)
+     — a ampliadinha e feita por JS (width/height/font-size inline) */
+  .selitem.atual{color:var(--accent)}
+  .selitem.desligado{color:var(--disabled); cursor:default}
+  /* HISTORICO (24/08) — lista compacta; a linha inteira e o alvo do ouvir */
+  /* MINHAS VOZES na engrenagem (24/08) */
+  .vzitem{display:flex; align-items:center; padding:6px 0;
+          border-top:1px solid var(--hairline)}
+  .vznome{flex:1; font-size:11.5px; overflow:hidden; white-space:nowrap;
+          text-overflow:ellipsis}
+  .vzmarca{flex:0 0 auto; font-size:9.5px; color:var(--faint); margin-left:6px}
+  .hitem{display:flex; align-items:center; padding:7px 0;
+         border-top:1px solid var(--hairline)}
+  .hnome{flex:1; font-size:11.5px; color:var(--text); overflow:hidden;
+         white-space:nowrap; text-overflow:ellipsis}
+  .hquando{flex:0 0 auto; font-size:10px; color:var(--faint); margin-left:8px}
+  .hbt{flex:0 0 auto; width:26px; height:24px; line-height:24px; margin-left:6px;
+       text-align:center; font-size:12px; color:var(--muted); cursor:pointer;
+       border:1px solid var(--hairline); border-radius:7px}
+  .hbt:hover{color:var(--text); border-color:var(--hairline-forte)}
+  .hitem.sumiu .hnome{color:var(--disabled)}
+  .hitem.sumiu .hbt{color:var(--disabled); cursor:default}
+  .seldica{border-top:1px solid var(--hairline); margin-top:4px;
+           padding:8px 10px 4px; font-size:10px; color:var(--muted);
+           line-height:1.45; min-height:14px}
+
+  /* MOLDURA DOS CAMPOS DE TEXTO: mesma doenca do select — a caixa e um
+     DIV e o campo fica nu (transparent) por dentro. */
+  /* digitacao e PRETA de proposito: o pintor do UXP pinta o miolo de
+     input/textarea de preto ignorando background (prints de 24/08) —
+     fundo preto na moldura FUNDE o miolo e o campo vira uma caixa so. */
+  /* CAIXA DENTRO DA CAIXA (24/08): era geometria — o campo media 36px
+     dentro de moldura de 38 e a tira da moldura aparecia em volta do
+     preto que o pintor impoe. Agora a moldura e PRETA e o campo
+     PREENCHE 100% dela: preto sobre preto, uma caixa so. */
+  .campow{display:flex; align-items:center;
+          background:var(--elevated);
+          border:1px solid rgba(0,0,0,0); border-radius:9px; flex:1;
+          padding:0; height:31px; overflow:hidden}
+  /* min-height: com o campo escondido (popover aberto) a moldura alta
+     segura o lugar sozinha — sem isto o card pula de tamanho */
+  .campow-alto{height:auto; min-height:76px; border-radius:9px; align-items:stretch}
+  .campow:focus-within{border-color:var(--accent)}
+
+  /* POPOVER da engrenagem — position:absolute e documentado como suportado
+     no UXP; primeiro uso aqui. Se o pintor estragar (print decide),
+     reverter pra fluxo. */
+  .heroi{position:relative}
+  .cartao.popover{position:absolute; top:100%; left:0; right:0;
+                  margin-top:6px; z-index:50;
+                  border-color:rgba(255,255,255,.16); margin-bottom:0}
+
+  /* ------------------------------------------------- HERÓI (assinatura)
+     Marca, engrenagem, o MODO em verde grande e a descrição — UMA peça.
+     Header solto + subtítulo solto + picker solto eram três costuras. */
+  .heroi{background:var(--card); border:1px solid var(--hairline);
+         border-radius:14px; padding:13px 14px; margin-bottom:11px}
+  .heroi-topo{display:flex; align-items:center; margin-bottom:10px}
+  .brand{display:flex; align-items:center; flex:1}
+  .bolinha{width:7px; height:7px; border-radius:3px; background:var(--ok);
+           margin-right:7px}
+  .marca{font-size:13px; font-weight:700; letter-spacing:.02em;
+         color:var(--header)}
+  .engr{width:28px; height:26px; line-height:26px; text-align:center;
+        background:transparent; color:var(--muted); border:none;
+        cursor:pointer; font-size:14px}
+  .engr:hover{color:var(--text)}
+  /* aberta = SO o icone verde. O anel de borda saiu: com o glifo fora de
+     centro ele virava "um circulo verde ridiculo" (palavras dele, 23/08). */
+  .engr.ligada{color:var(--accent)}
+
+  /* o seletor de modo VIVE no heroi: titulo verde grande e o botao */
+  .modo-picker{display:flex; align-items:center; cursor:pointer;
+               border:1px solid rgba(0,0,0,0); border-radius:15px;
+               padding:2px 4px; margin:0 -4px}
+  .modo-picker:hover .modo-chev{color:var(--text)}
+  .modo-picker:focus{border-color:var(--accent)}
+  .modo-nome{flex:0 0 auto; font-size:20px; font-weight:700;
+             color:var(--accent); letter-spacing:-.02em; line-height:1.25}
+  .modo-chev{flex:0 0 auto; color:var(--muted); font-size:13px;
+             margin-left:8px}
+  .modo-desc{font-size:11px; color:var(--muted); margin-top:2px}
+  /* popup compacto, "tipo o dropdown do Motor" (aprovado 24/08) */
+  .picker-lista{position:absolute; top:100%; left:0; width:230px;
+                z-index:55; margin-top:6px; background:var(--card);
+                border:1px solid rgba(255,255,255,.16);
+                border-radius:14px; padding:6px}
+  .modo-item{display:flex; align-items:center; border-radius:10px;
+             padding:9px 10px; cursor:pointer}
+  .modo-item:hover{background:var(--elevated)}
+  .modo-item.atual{background:var(--wash)}
+  .mi-ponto{width:7px; height:7px; border-radius:3px; margin-right:8px;
+            flex:0 0 auto}
+  .mi-nome{flex:0 0 84px; font-size:12px; font-weight:600}
+  .mi-desc{flex:1; font-size:10px; color:var(--muted); overflow:hidden;
+           text-overflow:ellipsis; white-space:nowrap; margin-left:8px}
+
+  /* ------------------------------------------------------------ cartoes */
+  /* métrica DECUPZ: card mais baixo e menos arredondado */
+  .cartao{background:var(--card); border:1px solid var(--hairline);
+          border-radius:14px; padding:13px 14px; margin-bottom:11px}
+  .rotulo{font-size:11px; font-weight:700; letter-spacing:.07em;
+          color:var(--header); margin-bottom:10px}
+  .dica{font-size:10.5px; color:var(--faint); margin-top:7px; line-height:1.45}
+  /* ROTULO DE CAMPO = .field-label do DECUPZ, medido no CSS dele:
+     10.5px, --faint, 5px de respiro, SEM caixa alta. O DUBX nao tinha
+     rotulo nenhum: o campo nascia nu embaixo de um titulo gritado, e era
+     isso que fazia ele parecer uma lousa vazia nos prints. */
+  .rot-campo{font-size:10.5px; color:var(--faint); letter-spacing:.01em;
+             margin:12px 0 5px}
+  .rot-campo.topo{margin-top:0}
+  /* subtitulo do card = .card-sub do DECUPZ: o titulo vira curto e o
+     resto da frase desce em cinza baixo, sem gritar */
+  .rotulo.colado{margin-bottom:3px}
+  .rotulo-sub{font-size:10.5px; color:var(--faint); font-weight:500;
+              letter-spacing:0; line-height:1.45; margin-bottom:10px}
+
+  /* cabecalho de secao recolhivel (Ajustes, Registro) */
+  .secao-cab{display:flex; align-items:center; cursor:pointer}
+  .secao-tit{flex:1; font-size:11px; font-weight:600; letter-spacing:.05em;
+             color:var(--header)}
+  .secao-chev{flex:0 0 auto; color:var(--muted); font-size:11px}
+  .secao-corpo{margin-top:12px}
+
+  /* ------------------------------------------------------------- campos */
+  /* ⚠️ height fixa + padding SO horizontal: o select do UXP nao cresce com
+     padding vertical — 9px em cima esmagou a area interna e o texto SUMIU
+     (prints de 23/08, Motor e Voz em branco). 38px e o valor provado. */
+  /* campos NUS: quem desenha caixa e a moldura .campow/.selwrap — o
+     pintor do UXP desenha fundo E contorno nativos no input (imunes a
+     CSS), entao qualquer borda minha virava "borda dupla" (24/08) */
+  /* METRICA UNICA de campo (24/08): 38px, texto centrado por
+     line-height, padding 0 12px, radius 10 na moldura. appearance:none
+     desliga o desenho nativo; a cor vem da moldura .campow/.selwrap. */
+  /* ⚠️ SEMPRE `background:` (shorthand). O pintor do UXP IGNORA o
+     longhand `background-color` — foi ele que deixou os campos pretos
+     enquanto os dropdowns (que usam shorthand) pintavam certo. */
+  /* campo DECUPZ: 34px, raio 9, fonte 11.5, borda transparente */
+  select,textarea,input[type=text],input[type=number],input[type=password]{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:31px; line-height:29px; color:var(--text);
+    background:var(--elevated); border:none; padding:0 10px;
+    font-family:inherit; font-size:11.5px; outline:none;
+  }
+  textarea{height:76px; line-height:1.45; padding:7px 10px}
+  select:focus,textarea:focus,input:focus{border-color:var(--accent)}
+
+  /* ------------------------------------------------------------- botoes */
+  /* PADRAO DE CURVATURA (25/08): raio = METADE DA ALTURA (pilula), o
+     mesmo do .ghost que ele apontou. Tambem e o teto do pintor do UXP
+     (raio inteiro <= metade da menor dimensao). */
+  .acao{display:block; width:100%; height:40px; line-height:38px; padding:0 14px;
+        border:1px solid rgba(0,0,0,0); border-radius:10px; background:var(--accent); color:var(--sobre);
+        text-align:center; font-family:inherit; font-size:12px; font-weight:700;
+        cursor:pointer; margin-top:12px}
+  .acao:hover{opacity:.92}
+  .acao.desligado{background:var(--elevated); color:var(--disabled); cursor:default}
+
+  .ghost{height:30px; line-height:28px; padding:0 10px; background:transparent;
+         color:var(--muted); border:1px solid var(--hairline); border-radius:8px;
+         text-align:center; font-family:inherit; font-size:10.5px; font-weight:700;
+         cursor:pointer; white-space:nowrap}
+  .ghost:hover{background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.16)}
+  .ghost.perigo{color:var(--danger)}
+
+  /* CANCELAR (20/09/2026). Ate esse dia nao dava pra parar nada pelo painel:
+     o /api/parar so calava o som da previa. Ele mandou uma legenda sem
+     querer, o separador tomou a GPU inteira (99%, 11,2 dos 12,2 GB) e o PC
+     travou — a saida era matar o processo na mao. Anda junto da barra de
+     progresso: aparece e some com ela, entao so existe quando ha o que
+     parar. Sem "tem certeza?" — a rede de seguranca dele e refazer. */
+  #btCancelar{display:none; width:100%; height:30px; line-height:28px;
+              margin-top:8px; text-align:center;
+              border-color:var(--danger); color:var(--danger)}
+  .ghost.desligado{color:var(--disabled); cursor:default}
+  /* ao lado de campo: mesma altura e mesmo canto do campo (38/19) */
+  .ghost.aolado{height:31px; line-height:29px; border-radius:9px;
+                margin-left:8px; font-size:11px; padding:0 12px}
+  .ghost.solo{margin-left:0}          /* mesma pilula do .ghost */
+
+  /* ------------------------------------------------------- segmentado */
+  /* fecha em 38px como os campos: 1+3+30+3+1. O padding zera a
+     esquerda porque todo .sbt carrega margin-left:3px (sem :first-child,
+     que e combinador). */
+  /* segmentado ENXUTO (25/08): 32px no total — 1+2+26+2+1 */
+  .seg{display:flex; background:var(--elevated); border:1px solid rgba(0,0,0,0);
+       border-radius:9px; padding:2px 2px 2px 0; margin-top:10px}
+  .sbt{flex:1; height:26px; line-height:24px; padding:0 4px; text-align:center;
+       border:none; border-radius:7px; background:transparent; color:var(--muted);
+       font-family:inherit; font-size:11px; font-weight:600; cursor:pointer;
+       margin-left:3px}
+  .sbt:hover{color:var(--text)}
+  .sbt.ativa{background:var(--accent); color:var(--sobre)}
+
+  /* --------------------------------------------------- linhas de ajuste */
+  .ctrl{display:flex; align-items:center; padding:8px 0}
+  .n{flex:0 0 84px; font-size:12px; margin-right:12px}
+  .campo{flex:1; width:auto}
+  input.num{flex:0 0 62px; width:62px; height:32px; text-align:center;
+            padding:0 6px; margin-left:12px}
+  .d{flex:0 0 42px; font-size:11px; color:var(--muted); text-align:right;
+     margin-left:12px}
+  .linha{display:flex; align-items:center; margin-top:12px}
+
+  /* range nativo escondido pelo fxSlider; regra minima caso apareca */
+  input[type=range]{flex:1; height:4px; background:rgba(255,255,255,.13);
+                    border-radius:2px; border:none; outline:none; padding:0;
+                    margin-left:12px}
+
+  /* slider proprio (celulas de div — ver regras da casa) */
+  .escolha-fundo{position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,.55); z-index:50;
+                 display:flex; align-items:center; justify-content:center}
+  .escolha{background:#1b1b1e; border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:12px; width:300px; max-height:70%;
+           display:flex; flex-direction:column}
+  .escolha-tit{font-size:12px; font-weight:600; color:#ececf0; margin-bottom:8px}
+  .escolha-rol{overflow:auto; flex:1; min-height:0}
+  .escolha-it{padding:6px 8px; border-radius:8px; font-size:12px; color:#ececf0; cursor:pointer}
+  .escolha-it:hover{background:rgba(255,255,255,.06)}
+  .escolha-it.ocupada{color:var(--muted)}
+  .escolha-it.origem{color:var(--muted); font-style:italic}
+  .escolha-it.sugerida{background:rgba(48,209,88,.14); color:var(--ok); font-weight:600}
+  .escolha-it.nova{margin-top:6px; border-top:1px solid rgba(255,255,255,.08); border-radius:0 0 8px 8px}
+  .escolha-sair{margin-top:8px; text-align:center; font-size:11px; color:var(--muted); cursor:pointer}
+  /* P41: a mesma lista, INLINE dentro do card da previa (o UXP nao desenha position:fixed) — sem caixa, sem fundo escuro */
+  .escolha.inline{background:transparent; border:none; border-radius:0; padding:0; width:auto; max-height:none; margin-top:8px}
+  .escolha.inline .escolha-tit{font-size:11px; color:#9a9aa3; font-weight:600; margin-bottom:4px}
+  .escolha.inline .escolha-rol{max-height:180px}
+  .escolha.inline .escolha-it{padding:4px 8px; font-size:11px}
+  .escolha-it.ocupada,.escolha-it.origem{cursor:default}
+  .escolha-it.ocupada:hover,.escolha-it.origem:hover{background:transparent}
+  .escolha.inline .escolha-sair{margin-top:4px; text-align:left; padding-left:8px}
+  .escolha.inline .escolha-sair:hover{color:#ececf0}
+  .d.dedit{cursor:text}
+  .d.dedit:hover{color:#ececf0}
+  .dcampo{width:40px; background:transparent; border:none; border-bottom:1px solid var(--ok); color:#ececf0; font:inherit;
+          font-size:11px; text-align:right; padding:0; outline:none}
+  .fxs{position:relative}
+  .fxbolha{position:absolute; top:-22px; transform:translateX(-50%); padding:2px 7px; border-radius:8px; background:#ececf0;
+           color:#101012; font-size:11px; font-weight:600; pointer-events:none; white-space:nowrap}
+  .pcfg{font-size:11px; color:#9a9aa3; margin-top:6px; line-height:1.5; white-space:normal}
+  .pcfg b{color:#ececf0; font-weight:600}
+  .pseta{display:inline-block; cursor:pointer; color:#9a9aa3; margin-right:6px; user-select:none}
+  .fxs{flex:1; display:flex; align-items:center; height:24px; overflow:visible;
+       margin-left:12px; cursor:pointer}
+  /* 29/10 (Kakashi 17:47): trilho CONTINUO — sem celulas, sem «linhazinhas verticais»; a parte viva e um unico div por cima */
+  .fxt{position:relative; flex:1; height:4px; background:rgba(255,255,255,.13); border-radius:2px}
+  .fxv{position:absolute; left:0; top:0; height:4px; background:var(--ok); border-radius:2px}
+  .fxk{position:absolute; top:-5px; transform:translateX(-50%)}
+  .fxc{flex:1; height:24px; display:flex; align-items:center}
+  .fxb{width:100%; height:4px; background:rgba(255,255,255,.13)}
+  /* paradas de MEXER sao sempre verdes DUBX (pedido de 24/08) */
+  .fxb.viva{background:var(--ok)}
+  .fxk{width:14px; height:14px; border-radius:7px; background:#ececf0;
+       margin:0 auto}
+
+  /* --------------------------------------------- interruptor (checkbox) */
+  .marcar{display:flex; align-items:center; margin-top:12px; cursor:pointer;
+          font-size:12px}
+  .cx{width:auto; height:auto; margin:0 8px 0 0; padding:0}
+  .cxpele{width:36px; height:21px; border-radius:10px; background:var(--elevated);
+          border:1px solid var(--hairline); display:flex; align-items:center;
+          padding:2px; margin-right:9px; cursor:pointer; flex:0 0 36px}
+  .cxpele.marcada{background:var(--ok); border-color:var(--ok)}
+  .cxbola{width:15px; height:15px; border-radius:7px; background:#ececf0}
+  .cxpele.marcada .cxbola{margin-left:auto}
+
+  /* ------------------------------------------------- lista de clipes */
+  #lista{display:block; margin-top:10px}
+  .clipe{display:flex; align-items:center; padding:7px 0}
+  .nome{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        font-size:12px; margin-left:9px}
+  .estado{flex:0 0 auto; font-size:11px; color:var(--muted);
+          white-space:nowrap; margin-left:9px}
+  .estado.ok{color:var(--ok)}
+  .estado.erro{color:var(--danger)}
+  .vazio{color:var(--muted); font-size:11px; padding:2px; font-style:italic}
+
+  /* -------------------------------------------------------- aviso/barra */
+  .aviso{display:none; font-size:12px; padding:10px 12px; border-radius:12px;
+         margin-bottom:12px; border:1px solid var(--hairline)}
+  .aviso.on{display:block}
+  .aviso.erro{background:#2a1416; border-color:var(--danger); color:#ff8a80}
+  .aviso.ok{background:#12241a; border-color:var(--ok); color:#9be8ae}
+  .aviso.info{background:var(--elevated); color:var(--text)}
+  /* FALTA != ERRO (24/08). "o DUBX ja esta trabalhando" saia na mesma
+     caixa vermelha de falha e ele leu como pau: "fica essa caixa
+     vermelha que parece que ta dando erro". Aviso de passo que falta
+     e ambar, o vermelho fica so pra coisa quebrada. */
+  .aviso.falta{background:#2a2011; border-color:#ff9f0a; color:#ffcf7a}
+
+  /* FITA DE EDICAO DA PREVIA — enxuta (25/08).
+     A versao anterior era um bloco ambar de 4 linhas com borda amarela em
+     volta inteira: "esse aviso amarelo la em cima ta meio feio". E estava —
+     gritava mais que o card de PREVIAS, que e o assunto da tela. A instrucao
+     saiu daqui porque ja vive em dois lugares melhores (o botao vira
+     "Aplicar nesta previa" e o REGISTRO escreve a frase inteira). Sobra o
+     que so a fita sabe: qual previa, e como sair. Uma unica marca forte, o
+     traco ambar da esquerda; todo o resto quieto. */
+  .fita{display:none; align-items:center; margin-bottom:12px; cursor:pointer;
+        background:#191510; border:1px solid rgba(255,159,10,.20);
+        border-left:3px solid #ff9f0a; border-radius:10px;
+        padding:6px 8px 6px 10px}
+  .fita.on{display:flex}
+  .fita:hover{background:#1f1a12; border-color:rgba(255,159,10,.34);
+              border-left-color:#ff9f0a}
+  .fita-marca{flex:0 0 auto; font-size:9.5px; color:#c08a2e; margin-right:9px}
+  .fita-nome{flex:1; font-size:11.5px; color:#d8c6a4; overflow:hidden;
+             white-space:nowrap; text-overflow:ellipsis}
+  .fita-sair{flex:0 0 auto; width:24px; height:22px; line-height:20px;
+             margin-left:8px; text-align:center; font-size:11px; color:#c08a2e;
+             border:1px solid rgba(255,159,10,.24); border-radius:7px}
+  .fita-sair:hover{color:#ffcf7a; border-color:#ff9f0a}
+
+  /* BARRA COM O NUMERO DENTRO (25/08) — "podia ter a porcentagem ali,
+     pode ser ate um pouquinho mais gordinha pra caber o numero dentro".
+     6px -> 20px.
+     O verde escureceu de proposito (--ok #30d158 -> #22913f): num risco de
+     6px o verde do design system e um brilho; num bloco de 20px vira placa
+     fluorescente e nao sobra contraste pra ler branco em cima. O tom fundo
+     mantem a familia e deixa o numero legivel sobre o cheio E sobre o vazio.
+     O numero e o preenchimento sao os dois position:absolute na mesma caixa,
+     e o numero vem DEPOIS no HTML: sem z-index (terreno movedico no UXP),
+     quem vem depois pinta por cima. */
+  #barra{display:none; position:relative; height:20px;
+         background:var(--elevated); border-radius:10px; overflow:hidden;
+         margin-bottom:8px}
+  #barraFill{position:absolute; left:0; top:0; height:20px; width:0%;
+             background:#22913f}
+  #barraPct{position:absolute; left:0; top:0; width:100%; height:20px;
+            line-height:20px; text-align:center; font-size:11px;
+            font-weight:600; color:#f2fbf4}
+  #barraTexto{display:none; font-size:11px; color:var(--muted);
+              text-align:center; margin-bottom:12px}
+
+  /* ------------------------------------------------------------ registro */
+  #log{background:var(--bg); border:1px solid var(--hairline);
+       border-radius:12px; padding:12px 14px; font-family:Consolas,monospace;
+       font-size:11px; line-height:1.55; white-space:pre-wrap;
+       word-break:break-word; height:150px; overflow-y:auto; color:var(--muted);
+       margin-top:12px}
+  .lok{color:var(--ok)}
+  .lerr{color:var(--danger)}
+  .lfalta{color:#ff9f0a}
+
+  /* ------------------------------------------------------------- previas */
+  .previa{display:block; padding:12px 0}
+  .previa-pe{display:flex; align-items:center; margin-top:10px}
+  .previa-vazio{flex:1}
+  .edlinha{display:flex; align-items:center; margin-top:8px; height:16px}
+  /* celula 24x24 = alvo de clique da guideline; a bolinha e o visual */
+  .bcel{width:24px; height:24px; display:flex; align-items:center;
+        justify-content:center; cursor:pointer; flex:0 0 auto;
+        margin-right:4px}
+  .bopt{width:14px; height:14px; border-radius:7px}
+  .edrot{font-size:11px; font-weight:600; margin-left:2px}
+  .betapa{width:7px; height:7px; border-radius:3px; margin-left:6px;
+          flex:0 0 auto}
+  .previa-cab{display:flex; align-items:center}
+  .previa-nome{flex:1; overflow:hidden; text-overflow:ellipsis;
+               white-space:nowrap; font-size:12px; font-weight:600}
+  .pbt{flex:0 0 auto; height:28px; line-height:26px; padding:0 12px;
+       margin-left:8px; background:transparent; color:var(--text);
+       border:1px solid var(--hairline); border-radius:14px; font-size:11px;
+       font-weight:600; cursor:pointer; text-align:center}
+  .pbt:hover{background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.16)}
+  .pbt.vai{background:var(--accent); color:var(--sobre);
+           border:1px solid rgba(0,0,0,0); line-height:26px}
+  .pbt.vai:hover{opacity:.92}
+  .pbt.fora{color:var(--danger)}
+  /* P41 «pôr na faixa»: o mesmo .pbt, menor (o Concluir continua o botao principal do rodape) */
+  .pbt.mini{height:24px; line-height:22px; padding:0 9px; border-radius:12px; font-size:10.5px; color:var(--muted)}
+  .pbt.mini:hover{color:var(--text)}
+  .pbt.mini.aberto{color:var(--ok); border-color:rgba(48,209,88,.5)}
+  /* play/parar sao GLIFOS, sem pilula (pedido 24/08: "nao precisa
+     desse outline") — so o Concluir continua botao de verdade */
+  .pglifo{flex:0 0 auto; width:26px; height:26px; line-height:24px;
+          margin-left:2px; background:transparent; color:var(--muted);
+          border:none; font-size:12px; cursor:pointer; text-align:center}
+  .pglifo:hover{color:var(--text)}
+  .previa-cab .pglifo{font-size:15px}
+  .pfechar{flex:0 0 auto; width:22px; height:26px; line-height:24px;
+           margin-left:6px; background:transparent; color:var(--muted);
+           border:none; font-size:12px; cursor:pointer; text-align:center}
+  .pfechar:hover{color:var(--danger)}
+  .previa-nome{flex:1; font-size:12px; font-weight:600; overflow:hidden;
+               white-space:nowrap; text-overflow:ellipsis; margin-right:8px}
+  .onda{display:flex; height:36px; margin-top:8px}
+  .ocel{flex:1; height:36px; display:flex; align-items:center;
+        margin-left:1px; cursor:pointer}
+  .obar{width:100%; background:#3d3d44; border-radius:1px; min-height:2px}
+  .obar.viva{background:var(--ok)}
+
+  /* --------------------------------------------------------------- fluxo */
+  .passo{background:var(--elevated); border:1px solid var(--hairline);
+         border-radius:12px; overflow:hidden}
+  .passo.rodando{border-color:var(--accent)}
+  .passo.erro{border-color:var(--danger)}
+  .passo-cab{display:flex; align-items:center; height:40px; padding:0 11px;
+             cursor:pointer}
+  .passo-num{flex:0 0 19px; height:19px; line-height:19px; text-align:center;
+             border-radius:9px; background:var(--card); color:var(--muted);
+             font-size:10px; font-weight:700}
+  .passo-num.pronto{background:var(--accent); color:var(--sobre)}
+  .passo-num.erro{background:var(--danger); color:#fff}
+  .passo-nome{flex:1; font-size:12px; font-weight:600; overflow:hidden;
+              text-overflow:ellipsis; white-space:nowrap; margin-left:8px}
+  .passo-estado{flex:0 0 auto; font-size:10px; color:var(--muted); margin-left:8px}
+  .passo-estado.pronto{color:var(--accent)}
+  .passo-estado.erro{color:var(--danger)}
+  .passo-chev{flex:0 0 auto; font-size:11px; color:var(--muted); margin-left:8px}
+  .passo-corpo{padding:2px 11px 11px; border-top:1px solid var(--hairline)}
+  .passo-resumo{font-size:11px; color:var(--muted); padding:8px 0 2px}
+  .passo-aviso{font-size:11px; color:var(--danger); padding:4px 0}
+  .seta{height:16px; text-align:center; color:var(--muted); font-size:12px;
+        line-height:16px}
+  #pilha{display:block}
+
+  /* FOCO DE TECLADO (checklist Vercel): anel por borda accent — todos os
+     controles sao divs com tabindex e sem isto o Tab navega no escuro. */
+  .acao:focus{border-color:var(--acao-foco)}
+  .ghost:focus,.pbt:focus,.sbt:focus,.engr:focus,.modo-picker:focus,
+  .modo-item:focus,.secao-cab:focus{border-color:var(--accent)}
+  .sbt{border:1px solid rgba(0,0,0,0)}
+  .modo-item{border:1px solid rgba(0,0,0,0)}
+  .secao-cab{border:1px solid rgba(0,0,0,0); border-radius:8px}
+  .secao-cab:hover .secao-tit{color:var(--text)}
+  .validar{display:flex; align-items:center; margin-top:10px}
+  .vbt{flex:1; margin-left:8px}
+  /* o MIOLO nao pinta: quem pinta e a moldura (igual .selrot dentro
+     do .selwrap). Assim nao existe "caixa dentro da caixa". */
+  input.campnu,textarea.campnu{-webkit-appearance:none; appearance:none;
+          background:transparent; border:none; border-radius:0;
+          outline:none; height:29px; line-height:29px; padding:0 10px;
+          flex:1; width:100%; font-size:11.5px; color:var(--text)}
+  textarea.campnu{height:auto; min-height:74px; line-height:1.45;
+          padding:7px 10px}
+  /* pastilha numerica (Épocas): a largura vive na MOLDURA, nao no miolo */
+  input.num.campnu{padding:0 6px; text-align:center; margin:0}
+  .campow-num{flex:0 0 74px; margin-left:12px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- logo fora de card, sozinha (pedido de 23/08) -->
+  <div class="logo-linha">
+    <div class="bolinha"></div>
+    <div class="logo-nome">DUBX</div>
+  </div>
+
+  <div class="heroi">
+    <div class="heroi-topo">
+      <div class="modo-picker" id="modoPicker" role="button" tabindex="0" style="flex:1">
+        <div class="modo-nome" id="modoNome">Melhorar</div>
+        <div class="modo-chev" id="modoChev">▾</div>
+      </div>
+      <div class="chip-clipes" id="chipClipes" role="button" tabindex="0" title="quais clipes estão na seleção — clique pra ver os nomes">0 clipes ▾</div>
+      <div class="engr-area">
+        <div class="engr" id="btConfig" role="button" tabindex="0" title="ajustes: onde pôr o resultado, prévia, faxina, cache e token">⚙</div>
+        
+      </div>
+    </div>
+    <div class="modo-desc" id="modoDesc">nivela e reconstrói a voz com o Sidon</div>
+    <!-- AJUSTES (engrenagem): o que ele NÃO mexe toda hora sai do caminho.
+       Recebe o "onde pôr", a prévia, a faxina e o cache. -->
+  <div class="cartao popover oculto" id="cartaoConfig">
+    <div class="rotulo">ONDE PÔR O RESULTADO</div>
+    <div class="seg destino" style="margin-top:0">
+      <div role="button" tabindex="0" class="sbt sbt-destino ativa" data-destino="auto">Automático</div>
+      <div role="button" tabindex="0" class="sbt sbt-destino" data-destino="vazias">Só vazias</div>
+      <div role="button" tabindex="0" class="sbt sbt-destino" data-destino="criar">Sempre criar</div>
+    </div>
+    <div class="dica" id="dicaDestino">Enche as faixas vazias que já existem e cria só o que faltar. É o que você quer na maioria das vezes.</div>
+    <div class="rotulo" style="margin-top:16px">MINHAS VOZES</div>
+    <div id="vozesConfig"></div>
+    <div class="dica">Apagar tira a voz do PC inteiro: biblioteca, treino e ajuste fino.</div>
+
+    <div class="rotulo" style="margin-top:16px">COMO TRABALHAR</div>
+    <div class="seg modotrab" style="margin-top:0">
+      <div role="button" tabindex="0" class="sbt sbt-modotrab ativa" data-mt="fluxo">Fluxo</div>
+      <div role="button" tabindex="0" class="sbt sbt-modotrab" data-mt="manual">Manual</div>
+    </div>
+    <div class="dica">Fluxo: o resultado espera na fila — ouça, clique Editar pra trabalhar em cima (melhorar, trocar voz, dublar, treinar) e só entra na timeline no Concluir. Manual: vai direto pra timeline.</div>
+    <div class="rotulo" style="margin-top:16px">FAXINA E CACHE</div>
+    <div class="linha" style="margin-top:0">
+      <span class="dica" id="lixoInfo" style="flex:1; margin:0">medindo…</span>
+      <div role="button" tabindex="0" class="ghost aolado" id="limparLixo">Limpar</div>
+    </div>
+    <div class="ctrl" title="O cache é o que faz “refazer só a última etapa” de um fluxo voltar em segundos. Ao estourar, o mais velho sai primeiro.">
+      <span class="n">Teto do cache</span>
+      <input id="espTeto" type="range" min="1" max="50" step="1" value="3">
+      <span class="d" id="dEspTeto">3 GB</span>
+    </div>
+    <label class="marcar" title="Ao fim de cada trabalho, apaga as passagens daquela tarefa. A entrega e o Histórico ficam.">
+      <input class="cx" type="checkbox" id="espAuto">
+      faxina automática ao fim de cada trabalho
+    </label>
+    <label class="marcar" title="Transcrição com o Whisper LARGE próprio, sem herdar o modelo do OpenWhispr.">
+      <input class="cx" type="checkbox" id="espWhisper" checked>
+      Whisper Large próprio (dublagem e legenda)
+    </label>
+    <div class="rotulo" style="margin-top:16px">TOKEN DO HUGGING FACE</div>
+    <!-- Token do HF: agora mora aqui, sempre visivel (24/08) -->
+    <div id="zonaToken" style="margin-top:4px">
+      <div class="ctrl">
+        <span class="n">Token HF</span>
+        <input class="campo" id="tokValor" type="password" placeholder="hf_…" autocomplete="off">
+        <div role="button" tabindex="0" class="ghost aolado" id="tokSalvar">Salvar</div>
+      </div>
+      <div class="dica" id="tokEstado">só a pyannote precisa disso.</div>
+    </div>
+  </div>
+    <div class="picker-lista oculto" id="modoLista"></div>
+  </div>
+
+  <!-- a lista de clipes abre pelo CHIP; os estados por clipe seguem aqui -->
+  <div class="painel-clipes oculto" id="painelClipes">
+    <div id="lista"><div class="vazio">selecione clipes na timeline e analise.</div></div>
+  </div>
+
+  <!-- o antigo card de seleção virou este botão, entre os cards -->
+  <div class="analisar-linha">
+    <div class="analisar" id="escanear" role="button" tabindex="0">Analisar seleção</div>
+  </div>
+  <!-- FITA DE EDICAO DA PREVIA (24/08): so aparece quando ele clica numa
+       bolinha da fila. Diz em qual faixa ele esta mexendo, e cancela no clique.
+       Saiu de dentro da analisar-linha em 25/08: ali dividia a linha com o
+       botao e nascia torto, empurrado 10px pra baixo. Agora e uma tira
+       inteira, propria, logo abaixo. -->
+  <div class="fita" id="fitaPrevia" role="button" tabindex="0"></div>
+
+  <!-- cartaoConfig virou POPOVER e mora na engr-area (24/08) -->
+
+  <!-- card de seleção extinto (24/08): virou o botão Analisar + chip no herói -->
+
+  <!-- FILA DE PREVIAS: o resultado espera aqui pelo ouvido dele.
+       Só existe visivel quando tem previa pendente. -->
+  <div class="cartao oculto" id="cartaoPrevias">
+    <div class="rotulo">PRÉVIAS — OUÇA ANTES DE MANDAR PRA TIMELINE</div>
+    <div id="listaPrevias"></div>
+    <div class="dica">o som sai pelo alto-falante do PC. Concluir põe na timeline.</div>
+  </div>
+
+  <div class="cartao" data-tela="melhorar">
+    <div class="rotulo colado">MELHORAR</div>
+    <div class="rotulo-sub">nivela e reconstrói a voz com o Sidon</div>
+    <div class="ctrl" style="border:none; padding-top:0" title="0 só nivela o volume. 100 reconstrói a voz — use em gravação estragada.">
+      <span class="n">Reconstrução</span>
+      <input id="dose" type="range" min="0" max="100" step="1" value="100">
+      <span class="d" id="dDose">100%</span>
+    </div>
+    <div class="ctrl" title="O volume final. −16 para faixa de voz; vídeo montado mira −14.">
+      <span class="n">LUFS alvo</span>
+      <input id="lufs" type="range" min="-24" max="-10" step="1" value="-16">
+      <span class="d" id="dLufs">-16</span>
+    </div>
+    <!-- MESMO PADRAO DO TROCAR (23/08): regravar o arquivo e opt-in,
+         porque Ctrl+Z nao desfaz escrita em disco. -->
+    <div class="seg">
+      <div role="button" tabindex="0" class="sbt sbt-mlmodo ativa" data-mlmodo="faixa">Arquivo novo (dá Ctrl+Z)</div>
+      <div role="button" tabindex="0" class="sbt sbt-mlmodo" data-mlmodo="arquivo">Regravar o original</div>
+    </div>
+    <div class="dica" id="dicaMlModo">o resultado entra numa faixa nova e o clipe original fica mudo — <b>Ctrl+Z</b> volta ao som de antes e <b>Ctrl+Shift+Z</b> refaz, quantas vezes você quiser. Só o trecho do clipe marcado é processado.</div>
+    <div role="button" tabindex="0" class="acao" id="melhorar">Melhorar 0 arquivo(s)</div>
+  </div>
+
+  <div class="cartao oculto" data-tela="trocar">
+    <div class="rotulo colado">TROCAR VOZ</div>
+    <div class="rotulo-sub">outra voz na fala, sem mexer no original</div>
+    <div class="rot-campo topo naoEl">Voz</div>
+    <div class="linha naoEl" style="margin-top:0">
+      <select id="vozes"><option value="">— vozes treinadas —</option></select>
+      <div role="button" tabindex="0" class="ghost aolado perigo" id="apagarVoz" title="apaga a voz do PC: biblioteca, treino e dataset">Apagar</div>
+    </div>
+    <!-- ELEVENLABS (29/10, Kakashi: «coloca o motor Eleven Labs aqui também, aí coloca só as opções que o Eleven Labs tem»).
+         A lista vem da conta dele (/api/el-vozes). -->
+    <div class="rot-campo topo soEl oculto">Voz do ElevenLabs</div>
+    <div class="linha soEl oculto" style="margin-top:0">
+      <select class="campo" id="elVoz"><option value="">— carregando as vozes da sua conta —</option></select>
+    </div>
+    <div class="dica soEl oculto" id="elDica"></div>
+    <div class="linha soEl oculto" style="margin-top:6px">
+      <input class="campo" id="elApelido" type="text" placeholder="apelido (ex.: Sargento Vinagre)" title="nome que aparece na lista; a voz original vai entre parênteses">
+      <div role="button" tabindex="0" class="ghost" id="favoritarEl" title="guarda esta voz do ElevenLabs com os ajustes de agora; aparece com ★ no topo das listas">★ favoritar</div>
+    </div>
+    <!-- PADRAO NAO-DESTRUTIVO (23/08). Ele rodou o trocar, o ARQUIVO
+         ORIGINAL foi regravado e o Ctrl+Z nao desfazia — Ctrl+Z nao
+         desfaz escrita em disco. Substituir virou opt-in. -->
+    <div class="seg">
+      <div role="button" tabindex="0" class="sbt sbt-vcmodo ativa" data-vcmodo="faixa">Arquivo novo (dá Ctrl+Z)</div>
+      <div role="button" tabindex="0" class="sbt sbt-vcmodo" data-vcmodo="arquivo">Regravar o original</div>
+    </div>
+    <div class="dica" id="dicaVcModo">Arquivo novo: o original não é tocado; o resultado entra como mídia nova (a faixa segue o “onde pôr” da engrenagem) e o Ctrl+Z desfaz. Regravar: escreve por cima do arquivo no disco — sem Ctrl+Z.</div>
+    <label class="marcar" title="separa a voz da cama, troca SÓ a voz e devolve música e efeitos por cima — a regra da casa: voz nunca sai seca">
+      <input class="cx" type="checkbox" id="vcPreservar" checked>
+      manter música e efeitos (troca só a voz)
+    </label>
+    <div class="ctrl">
+      <span class="n">Motor</span>
+      <select class="campo" id="vcMotor">
+        <option value="seedvc" title="troca a voz a partir de uma amostra de 4 minutos e segue melhor a entonação original. O padrão da casa.">Seed-VC (recomendado)</option>
+        <option value="rvc" title="o motor clássico: precisa de uma voz treinada por horas, mas libera os ajustes finos (Presença, Tom, Entonação…).">RVC (treinado, 8 h)</option>
+        <option value="elevenlabs" title="troca a voz na nuvem, com as vozes da SUA conta do ElevenLabs (gasta crédito de lá). Não precisa treinar nada aqui.">ElevenLabs (sua conta)</option>
+      </select>
+    </div>
+    <!-- SIDON ANTES / DEPOIS / SEM (Kakashi 29/10 16:35 [00:56]: «se eu ativo o Sidon, ele entra antes ou depois? ... antes,
+         depois ou sem»). O slider de baixo e a força; só vale com Antes ou Depois. -->
+    <div class="ctrl" style="padding-bottom:0" title="Sidon = o reconstrutor de voz do DUBX. Antes: limpa a SUA gravação antes da troca. Depois: dá o acabamento na voz já trocada (o jeito de sempre). Sem: não usa.">
+      <span class="n">Sidon</span>
+      <div class="seg" style="flex:1; margin-top:0">
+        <div role="button" tabindex="0" class="sbt sbt-sidonq" data-sq="antes">Antes</div>
+        <div role="button" tabindex="0" class="sbt sbt-sidonq ativa" data-sq="depois">Depois</div>
+        <div role="button" tabindex="0" class="sbt sbt-sidonq" data-sq="sem">Sem</div>
+      </div>
+    </div>
+    <div class="ctrl" id="ctrlVcSidon" title="Força do Sidon: 0 só nivela o volume, 100 reconstrói a voz inteira — mais brilho, menos naturalidade.">
+      <span class="n">Força</span>
+      <input id="vcSidon" type="range" min="0" max="100" step="1" value="100">
+      <span class="d" id="dVcSidon">100%</span>
+    </div>
+    <!-- os 5 ajustes que o site do ElevenLabs tem no Voice Changer, com os mesmos padrões de lá -->
+    <div class="ctrl soEl oculto" title="Estabilidade da voz do ElevenLabs: baixo = mais emoção e variação (pode sair instável); alto = mais regular e monótono. Padrão do site: 0,50.">
+      <span class="n">Estabilidade</span>
+      <input id="elEstab" type="range" min="0" max="100" step="1" value="50">
+      <span class="d" id="dElEstab">0,50</span>
+    </div>
+    <div class="ctrl soEl oculto" title="Quanto o resultado gruda na VOZ ESCOLHIDA do ElevenLabs (não na sua). Alto demais pode trazer ruído da gravação original da voz. Padrão do site: 0,75.">
+      <span class="n">Semelhança</span>
+      <input id="elSemel" type="range" min="0" max="100" step="1" value="75">
+      <span class="d" id="dElSemel">0,75</span>
+    </div>
+    <div class="ctrl soEl oculto" title="Exagera o jeito de falar da voz escolhida. 0 = desligado (padrão do site); subir deixa mais caricato e mais lento.">
+      <span class="n">Exagero de estilo</span>
+      <input id="elEstilo" type="range" min="0" max="100" step="1" value="0">
+      <span class="d" id="dElEstilo">0,00</span>
+    </div>
+    <label class="marcar soEl oculto" title="Reforça a semelhança com a voz escolhida. Ligado no site por padrão; deixa um pouco mais lento.">
+      <input class="cx" type="checkbox" id="elBoost" checked>
+      Speaker boost (reforça a voz escolhida)
+    </label>
+    <label class="marcar soEl oculto" title="O ElevenLabs tira o ruído de fundo da SUA gravação antes de trocar. Desligado no site por padrão.">
+      <input class="cx" type="checkbox" id="elRuido">
+      Remover ruído de fundo
+    </label>
+    <label class="marcar soSeed" title="O Seed-VC troca o TIMBRE e mantém a ALTURA da fala que entra. Ligue quando a voz-alvo for muito mais grave ou mais aguda que a original (monstro, criança) — ele passa a usar o modelo com pitch e move a altura pra faixa da voz-alvo. Baixa um modelo na primeira vez e é mais lento.">
+      <input class="cx" type="checkbox" id="vcPuxarTom">
+      puxar a altura da voz-alvo (monstro, criança…)
+    </label>
+    <div class="ctrl soRvc" title="Protege as consoantes e a respiração da SUA gravação (a fala que entra). Menor = guarda mais do original; 0,50 = não protege nada.">
+      <span class="n">Presença</span>
+      <input id="vcPresenca" type="range" min="0" max="50" step="1" value="15">
+      <span class="d" id="dVcPresenca">0,15</span>
+    </div>
+    <div class="ctrl soRvc" title="A dinâmica (volume que sobe e desce) em relação à SUA gravação, a fala que entra: 1 mantém a dinâmica dela.">
+      <span class="n">Atuação</span>
+      <input id="vcAtuacao" type="range" min="0" max="100" step="1" value="100">
+      <span class="d" id="dVcAtuacao">1,00</span>
+    </div>
+    <div class="ctrl naoEl" title="Semelhança com a VOZ-ALVO (a voz escolhida em cima, ex.: Pedaleira) — não com a sua. Alto demais gera artefato. No RVC é quanto ele consulta o fichário da voz; no Seed-VC é quanto puxa da amostra dela.">
+      <span class="n">Semelhança</span>
+      <input id="vcSemelhanca" type="range" min="0" max="100" step="1" value="50">
+      <span class="d" id="dVcSemelhanca">0,50</span>
+    </div>
+    <div class="ctrl soRvc" title="Sobe ou desce a altura em semitons, em relação à SUA gravação (a fala que entra). 0 = mesma altura; −12 = uma oitava mais grave.">
+      <span class="n">Tom</span>
+      <input id="vcTom" type="range" min="-12" max="12" step="1" value="0">
+      <span class="d" id="dVcTom">0</span>
+    </div>
+    <div class="dica soRvc">Tom sobe/desce a ALTURA da voz em semitons (0 mantém a sua). Entonação é como o RVC lê a melodia da SUA fala: Equilíbrio serve pra quase tudo, Mais preciso é lento, Rápido é um pouco menos preciso.</div>
+    <div class="ctrl soRvc" title="Como o RVC lê a melodia (sobe e desce) da SUA fala pra repetir na voz-alvo.">
+      <span class="n">Entonação</span>
+      <select class="campo" id="vcF0">
+        <option value="rmvpe" title="lê a melodia da fala com equilíbrio entre precisão e velocidade — serve pra quase tudo.">Equilíbrio (rmvpe)</option>
+        <option value="crepe" title="o mais preciso pra melodia da voz, porém bem mais lento.">Mais preciso, lento (crepe)</option>
+        <option value="fcpe" title="o mais rápido, um pouco menos preciso na melodia.">Rápido (fcpe)</option>
+      </select>
+    </div>
+    <div class="dica" id="dicaSoRvc">os ajustes finos (Presença, Atuação, Tom, Entonação) aparecem quando o motor é o RVC — o Seed-VC não usa nenhum deles.</div>
+    <div role="button" tabindex="0" class="acao" id="trocar">Trocar voz na seleção</div>
+    <div role="button" tabindex="0" class="ghost naoEl" id="salvarPreset" title="guarda os ajustes de cima como padrão desta voz — escolher a voz aplica eles">salvar como preset da voz</div>
+  </div>
+
+  <!-- FALAR: existia so no app. Gera fala do TEXTO com a voz treinada e
+       poe no cursor da timeline — nao precisa de clipe selecionado. -->
+  <div class="cartao oculto" data-tela="falar">
+    <div class="rotulo colado">FALAR</div>
+    <div class="rotulo-sub">texto vira fala com a voz treinada</div>
+    <div class="ctrl" style="border:none; padding-top:0">
+      <span class="n">Voz</span>
+      <select class="campo" id="falarVoz"><option value="">— vozes —</option></select>
+    </div>
+    <div class="rot-campo">O que falar</div>
+    <textarea id="falarTexto" placeholder="escreva a fala…"></textarea>
+    <div class="ctrl" title="Intensidade da emoção inventada pelo modelo.">
+      <span class="n">Atuação</span>
+      <input id="falarAtuacao" type="range" min="0" max="100" step="1" value="30">
+      <span class="d" id="dFalarAtuacao">0,30</span>
+    </div>
+    <div class="ctrl" title="Quanto adere à referência da voz.">
+      <span class="n">Semelhança</span>
+      <input id="falarAdesao" type="range" min="0" max="100" step="1" value="50">
+      <span class="d" id="dFalarAdesao">0,50</span>
+    </div>
+    <label class="marcar">
+      <input class="cx" type="checkbox" id="falarFaixa" checked>
+      pôr na timeline, no cursor (o "onde" fica lá em cima)
+    </label>
+    <div role="button" tabindex="0" class="acao" id="falar">Falar</div>
+    <div class="dica">a fala nasce no ponto onde o cursor da timeline está — não precisa selecionar clipe.</div>
+  </div>
+
+  <!-- SEPARAR: o fim natural aqui NAO e um player dentro do painel, e a
+       FAIXA na timeline. Cada stem vira uma faixa de audio propria, alinhada
+       no tempo do clipe original — dai o Premiere e a mesa de mistura. -->
+  <div class="cartao oculto" data-tela="separar">
+    <div class="rotulo colado">SEPARAR</div>
+    <div class="rotulo-sub">uma faixa por pessoa, direto na timeline</div>
+    <div class="ctrl">
+      <span class="n">Motor</span>
+      <select class="campo" id="motorDiar">
+        <!-- padrao «Não dividir» desde 29/10 (Kakashi 14:10 [49:39] «É esse? Deveria vir como padrão, né?») -->
+        <option value="nenhum" selected title="não divide por pessoa: entrega voz, música e efeitos, cada um na sua faixa.">Não dividir por pessoa — só voz/música/efeitos</option>
+        <option value="roteiro" title="você cola o roteiro (Personagem: fala) e ele acerta quem fala o quê — funciona até com vozes iguais.">Por personagem, pelo roteiro</option>
+        <option value="timbre" title="divide por quem fala usando a diferença entre as vozes — precisa que sejam bem diferentes.">Por personagem, pelo timbre</option>
+        <option value="pyannote" title="reconhecedor clássico de quem fala. Precisa do token do Hugging Face (fica na engrenagem).">pyannote</option>
+        <option value="sortformer" title="reconhecedor da NVIDIA. A licença não permite uso comercial — por isso “uso pessoal”.">Sortformer (uso pessoal)</option>
+        <option value="mossformer2" title="separa duas vozes falando AO MESMO TEMPO. Saída crua em 16 kHz, sem limpar e sem Sidon.">MossFormer2 — vozes sobrepostas (cru)</option>
+        <option value="tiger" title="separa duas vozes falando AO MESMO TEMPO. Saída crua em 16 kHz, sem limpar e sem Sidon.">TIGER — vozes sobrepostas (cru)</option>
+        <option value="sam_risada" title="igual ao SAM Audio, mas tira as RISADAS pra uma faixa própria (fala sem risada pra dublar).">SAM Audio + risadas à parte (pra dublagem)</option>
+        <option value="sam" title="separador da Meta: acha sozinho onde cada voz fala sozinha e puxa a voz do arquivo inteiro. 48 kHz, cru.">SAM Audio — vozes sobrepostas, 48 kHz (cru)</option>
+      </select>
+    </div>
+    <div class="ctrl" id="ctrlQtdVozes">
+      <span class="n">Vozes</span>
+      <select class="campo" id="qtdVozes">
+        <option value="2">2 pessoas</option>
+        <option value="3">3 pessoas</option>
+        <option value="4">4 pessoas</option>
+        <option value="0" title="ele estima quantas pessoas falam — bom quando você não sabe.">descobrir sozinho</option>
+      </select>
+    </div>
+    <div id="zonaRoteiro" style="margin-top:12px">
+      <div class="rot-campo topo">Roteiro — é ele que diz quem fala o quê</div>
+      <textarea id="rotSeparar"
+        placeholder="Plexus: Ô Pedaleira, tu já parou pra pensar…"></textarea>
+      <div class="dica">Pelo roteiro acerta 100% mesmo quando os personagens têm a MESMA voz. Os outros motores separam por timbre e só funcionam quando as vozes são de fato diferentes.</div>
+    </div>
+    <!-- zonaToken foi pro popover da engrenagem (24/08) -->
+    <label class="marcar">
+      <input class="cx" type="checkbox" id="criarFaixas" checked>
+      pôr os stems na timeline (o "onde" fica lá em cima)
+    </label>
+    <div role="button" tabindex="0" class="acao" id="separar">Separar seleção</div>
+    <div class="dica">os stems entram no projeto e caem cada um na sua faixa, alinhados no tempo do clipe. O original não é tocado.</div>
+  </div>
+
+  <div class="cartao oculto" data-tela="dublar">
+    <div class="rotulo colado">DUBLAR</div>
+    <div class="rotulo-sub">traduz e fala com a mesma voz</div>
+    <div class="ctrl">
+      <span class="n">Do idioma</span>
+      <select class="campo" id="dubOrigem">
+        <option value="pt">Português</option>
+        <option value="en">Inglês</option>
+        <option value="es">Espanhol</option>
+        <option value="fr">Francês</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <span class="n">Para</span>
+      <select class="campo" id="dubAlvo">
+        <option value="en">Inglês</option>
+        <option value="es">Espanhol</option>
+        <option value="pt">Português</option>
+        <option value="fr">Francês</option>
+      </select>
+    </div>
+    <div class="ctrl" title="Expressividade que o modelo inventa na fala. Baixo fica contido, alto fica dramático. 0,65 é o doce pra dublagem.">
+      <span class="n">Atuação</span>
+      <input id="dubAtuacao" type="range" min="0" max="100" step="1" value="65">
+      <span class="d" id="dDubAtuacao">65%</span>
+    </div>
+    <div class="ctrl" title="Mais baixo = fala mais devagar e natural. Subir deixa apressado. 0,3 é o recomendado.">
+      <span class="n">Cadência</span>
+      <input id="dubAdesao" type="range" min="0" max="100" step="1" value="30">
+      <span class="d" id="dDubAdesao">30%</span>
+    </div>
+    <div class="ctrl" title="Acabamento final: 0 entrega a fala crua só nivelada, 100 reconstrói a voz — mais brilho e corpo, porém MENOS naturalidade. Na dublagem a voz já nasce sintética, então dose alta soa robótica.">
+      <span class="n">Sidon</span>
+      <input id="dubSidon" type="range" min="0" max="100" step="1" value="0">
+      <span class="d" id="dDubSidon">0%</span>
+    </div>
+    <div class="dica">O <b>Sidon nasce desligado</b> de propósito: a voz da dublagem já é sintética, e reconstruir por cima tira a vida dela. Se o resultado sair sem corpo, suba aqui — ou aplique depois com o <b>Melhorar</b> no próprio resultado. Sem emoção? suba a Atuação.</div>
+    <label class="marcar">
+      <input class="cx" type="checkbox" id="dubFaixa" checked>
+      pôr o resultado na timeline (onde, decide o ajuste acima)
+    </label>
+    <div role="button" tabindex="0" class="acao" id="dublar">Dublar seleção</div>
+    <div class="dica">clona a voz do próprio clipe e encaixa cada frase no tempo da original. Precisa do Ollama aberto pra tradução.</div>
+  </div>
+
+  <!-- FLUXO: a esteira. Aqui NAO tem editor de node — desenhar grafo num
+       painel de 380px e briga perdida. Aqui se ESCOLHE um fluxo pronto e
+       roda na seleção; o editor visual mora no app. -->
+  <div class="cartao oculto" data-tela="fluxo">
+    <div class="rotulo colado">FLUXO</div>
+    <div class="rotulo-sub">a esteira inteira de uma vez</div>
+    <div class="rot-campo topo">Fluxo</div>
+    <select id="fluxo"><option value="">— escolha um fluxo —</option></select>
+    <div class="dica" id="dicaFluxo">faz a esteira inteira numa tacada só, sem você ficar subindo e baixando arquivo.</div>
+
+    <div class="seg jeito" style="margin-top:12px">
+      <div role="button" tabindex="0" class="sbt sbt-jeito ativa" data-jeito="auto">Automático</div>
+      <div role="button" tabindex="0" class="sbt sbt-jeito" data-jeito="validar">Validando</div>
+    </div>
+    <div class="dica" id="dicaJeito">Automático: roda tudo de ponta a ponta e te avisa no fim.</div>
+
+    <!-- a pilha de etapas, desenhada a partir do fluxo escolhido -->
+    <div id="pilha" style="margin-top:12px"></div>
+
+    <label class="marcar">
+      <input class="cx" type="checkbox" id="fluxoFaixas" checked>
+      pôr o resultado na timeline (onde, decide o ajuste acima)
+    </label>
+    <div role="button" tabindex="0" class="acao" id="rodarFluxo">Rodar fluxo na seleção</div>
+    <div class="dica">cada etapa fica guardada: mudar o ajuste da última e rodar de novo não refaz a separação nem a troca de voz.</div>
+  </div>
+
+  <div class="cartao oculto" data-tela="treinar">
+    <div class="rotulo colado">TREINAR VOZ NOVA</div>
+    <div class="rotulo-sub">com os arquivos da seleção</div>
+    <div class="rot-campo topo">Nome da voz</div>
+    <input id="nomeVoz" type="text" placeholder="ex.: Plexus" autocomplete="off">
+
+    <!-- ATE ONDE IR (24/08): a voz tem tres pecas e nem toda voz precisa das
+         tres. O texto de cada nivel fica na tela, nao no balao de repouso. -->
+    <div class="rot-campo">Até onde ir</div>
+    <div class="seg nivel">
+      <div role="button" tabindex="0" class="sbt sbt-nivel" data-nivel="rapida">Rápida</div>
+      <div role="button" tabindex="0" class="sbt sbt-nivel ativa" data-nivel="boa">Boa</div>
+      <div role="button" tabindex="0" class="sbt sbt-nivel" data-nivel="maxima">Máxima</div>
+    </div>
+    <div class="dica" id="dicaNivel"></div>
+
+    <div class="seg fid oculto" id="segFid" style="margin-top:12px">
+      <div role="button" tabindex="0" class="sbt sbt-fid" data-ep="50">Rápido</div>
+      <div role="button" tabindex="0" class="sbt sbt-fid" data-ep="150">Médio</div>
+      <div role="button" tabindex="0" class="sbt sbt-fid ativa" data-ep="300">Muito fiel</div>
+    </div>
+    <div class="ctrl oculto" id="ctrlEpocas">
+      <span class="n">Épocas</span>
+      <input id="fidelidade" type="range" min="10" max="600" step="10" value="300">
+      <input id="epocas" class="num" type="number" value="300" min="10" max="1000" step="10">
+    </div>
+    <div class="dica oculto" id="dicaTreino">Conta medida na sua placa: cada época custa ~1,8 s por minuto de material. 5 min de voz em 300 épocas dá uns 45 min; 30 min em 500 épocas deu 8 h (foi o Plexus, em 16/08).</div>
+    <div role="button" tabindex="0" class="acao" id="treinar">Treinar voz</div>
+  </div>
+
+  <div class="cartao oculto" data-tela="legenda">
+    <div class="rotulo colado">LEGENDA</div>
+    <div class="rotulo-sub">gera o .srt na pasta do próprio arquivo</div>
+    <div class="rot-campo topo">Roteiro — opcional</div>
+    <textarea id="rotLegenda"
+      placeholder="Plexus: Ô Pedaleira, tu já parou pra pensar…"></textarea>
+    <div class="dica">sem o roteiro, o texto da legenda é o que o Whisper ouviu.</div>
+    <div class="seg preset" style="margin-top:12px">
+      <div role="button" tabindex="0" class="sbt sbt-preset ativa" data-preset="normal">Normal</div>
+      <div role="button" tabindex="0" class="sbt sbt-preset" data-preset="mini">Plexus Mini</div>
+    </div>
+    <label class="marcar dica">
+      <input class="cx" type="checkbox" id="legPersonagem">
+      marcar quem fala — [Plexus] / [Pedaleira]
+    </label>
+    <div class="dica" id="dicaLegenda">Normal: 2 linhas de 42 caracteres, com pontuação. O SRT sai na pasta do próprio arquivo.</div>
+    <div role="button" tabindex="0" class="acao" id="legendar">Gerar legenda</div>
+  </div>
+
+  <div class="cartao oculto" data-tela="ambientar">
+    <div class="rotulo colado">AMBIENTE</div>
+    <div class="rotulo-sub">põe a voz no lugar da cena</div>
+    <div class="rot-campo topo">Ambiente</div>
+    <select id="ambientes"><option value="">— ambientes —</option></select>
+    <div class="seg intens" style="margin-top:12px">
+      <div role="button" tabindex="0" class="sbt sbt-intens" data-int="50">Leve</div>
+      <div role="button" tabindex="0" class="sbt sbt-intens" data-int="75">Médio</div>
+      <div role="button" tabindex="0" class="sbt sbt-intens ativa" data-int="100">Total</div>
+    </div>
+    <div role="button" tabindex="0" class="acao" id="ambientar">Ambientar seleção</div>
+    <div role="button" tabindex="0" class="ghost" id="ambienteAuto" style="margin-top:8px">Descobrir pela imagem</div>
+    <div class="dica" id="dicaAmbiente">gravado no arquivo com backup; reaplicar outro ambiente parte sempre do som seco original.</div>
+    <div class="rot-campo">Salvar os efeitos deste clipe como</div>
+    <div class="linha" style="margin-top:0">
+      <input class="campo" id="nomeAmbiente" type="text" placeholder="ex.: rua à noite">
+      <div role="button" tabindex="0" class="ghost aolado" id="capturar">Salvar do clipe</div>
+    </div>
+    <div class="dica">pra colher os presets de fábrica da Adobe: aplica o preset num clipe (2 cliques no Premiere), seleciona e salva aqui — vira item do dropdown, aplicado como efeito no clipe.</div>
+  </div>
+
+  <!-- PITCH SYNC (23/09/2026): veio do Beat Match a pedido dele — "e pra
+       audio e eu uso muito". 3o card DENTRO do Melhorar, igual o Ambiente.
+       Clipe com velocidade != 100% muda de tom junto; isto poe o Deslocador
+       de tom NATIVO com a compensacao exata. Sem render; Ctrl+Z desfaz. -->
+  <div class="cartao oculto" data-tela="pitchsync">
+    <div class="rotulo colado">PITCH SYNC</div>
+    <div class="rotulo-sub">clipe acelerado ou desacelerado volta ao tom original</div>
+    <div class="dica">mudar a velocidade de um clipe muda o tom junto — mais rápido fica mais agudo. Isto lê a velocidade de cada clipe de áudio selecionado e põe o <b>Deslocador de tom</b> nativo do Premiere com a compensação exata. Não gera arquivo novo e <b>Ctrl+Z</b> desfaz. Clipe em 100% é pulado.</div>
+    <div role="button" tabindex="0" class="acao" id="pitchSync">Pitch Sync na seleção</div>
+    <div role="button" tabindex="0" class="ghost" id="psLer" style="margin-top:8px">Só ler a velocidade</div>
+  </div>
+
+  <!-- FAXINA e cache moraram aqui; moraram — agora vivem na engrenagem. -->
+
+  <div class="aviso" id="aviso"></div>
+<div id="barra"><div id="barraFill"></div><div id="barraPct"></div></div>
+  <div id="barraTexto"></div>
+  <div role="button" tabindex="0" class="ghost perigo" id="btCancelar">Cancelar</div>
+  <!-- HISTORICO: existia no servidor e no app desde 16/08; o painel nao
+       tinha a tela, entao "sumia" o que ele ja tinha gerado (24/08) -->
+  <div class="registro-linha" id="histCab" role="button" tabindex="0">
+    <div class="secao-tit">HISTÓRICO</div>
+    <div style="flex:1"></div>
+    <div class="secao-chev" id="histChev">▸</div>
+  </div>
+  <div id="historico" class="oculto"></div>
+
+  <div class="registro-linha" id="logCab" role="button" tabindex="0">
+    <div class="secao-tit">REGISTRO</div>
+    <div style="flex:1"></div>
+    <div class="secao-chev" id="logChev">▸</div>
+  </div>
+  <div id="log" class="oculto">analise a seleção pra começar.</div>
+
+</div>
+
+<!-- pega erro do main.js ANTES dele rodar: botao morto costuma ser isso -->
+<script>
+  window.__erros = [];
+  window.addEventListener("error", function(e){
+    var t = (e.message||"?") + " @ " + (e.filename||"?") + ":" + (e.lineno||"?");
+    window.__erros.push(t);
+    /* PINTA NA TELA. Se o main.js quebra no boot, o painel fica 100% morto
+       e 100% mudo — e ele nao tem DevTools aqui pra descobrir por que. */
+    var l = document.getElementById("log");
+    if (l) { var d = document.createElement("div"); d.className = "lerr";
+             d.textContent = "ERRO NO PAINEL: " + t; l.appendChild(d); }
+    var a = document.getElementById("aviso");
+    if (a) { a.className = "aviso on erro";
+             a.textContent = "O painel quebrou ao carregar: " + t; }
+  });
+</script>
+<script src="main.js"></script>
+<script>
+/* SELETOR DE MODO + ENGRENAGEM + REGISTRO (23/08, reforma Orgzana).
+   Os cartoes continuam todos no DOM (so escondidos) — os listeners do
+   main.js seguem valendo. */
+(function(){
+  /* [id, nome, descricao, cor, texto-sobre-a-cor, wash, foco-do-botao]
+     Cor por feature (24/08): verde Melhorar, azul Trocar, roxo Separar,
+     laranja Dublar, vermelho Treinar, amarelo Falar/Legenda/Ambiente.
+     O Fluxo saiu do menu (vai viver entranhado nos outros depois). */
+  var MODOS = [
+    ["melhorar",  "Melhorar",  "nivela e reconstrói a voz com o Sidon",
+     "#30d158", "#06230f", "rgba(48,209,88,.10)",  "#0d5223"],
+    ["trocar",    "Trocar",    "outra voz na fala, sem tocar o original",
+     "#0a84ff", "#ffffff", "rgba(10,132,255,.10)", "#063e78"],
+    ["separar",   "Separar",   "voz, música e efeitos em faixas",
+     "#bf5af2", "#ffffff", "rgba(191,90,242,.10)", "#592a73"],
+    ["treinar",   "Treinar",   "cria uma voz nova com a seleção",
+     "#ff453a", "#ffffff", "rgba(255,69,58,.10)",  "#7a211c"],
+    ["dublar",    "Dublar",    "traduz e fala no outro idioma",
+     "#ff9f0a", "#241503", "rgba(255,159,10,.10)", "#7a4c05"],
+    ["falar",     "Falar",     "texto vira fala com a voz treinada",
+     "#ffd60a", "#241f03", "rgba(255,214,10,.10)", "#7a6605"],
+    ["legenda",   "Legenda",   "gera o .srt na pasta do arquivo",
+     "#ffd60a", "#241f03", "rgba(255,214,10,.10)", "#7a6605"]
+  ];
+  /* Ambiente saiu do menu (24/08): vive como 2o card DENTRO do Melhorar;
+     o Pitch Sync (23/09) e o 3o card do mesmo modo */
+  var telas = document.querySelectorAll("[data-tela]");
+  var lista = document.getElementById("modoLista");
+  var nome = document.getElementById("modoNome");
+  var chev = document.getElementById("modoChev");
+  var picker = document.getElementById("modoPicker");
+  var atual = "melhorar";
+
+  window.mostraModo = function(m){ mostraModo(m); };   // o main.js usa
+  window.mostraModo = function(m){ mostraModo(m); };   // o main.js usa
+  function mostraModo(modo){
+    atual = modo;
+    for (var j = 0; j < telas.length; j++) {
+      var tj = telas[j].getAttribute("data-tela");
+      var fica = (tj === modo) || (modo === "melhorar" && (tj === "ambientar" || tj === "pitchsync"));
+      telas[j].className = "cartao" + (fica ? "" : " oculto");
+    }
+    for (var k = 0; k < MODOS.length; k++)
+      if (MODOS[k][0] === modo) {
+        nome.textContent = MODOS[k][1];
+        var dsc = document.getElementById("modoDesc");
+        if (dsc) dsc.textContent = MODOS[k][2];
+        var rz = document.documentElement.style;
+        rz.setProperty("--accent", MODOS[k][3]);
+        rz.setProperty("--sobre", MODOS[k][4]);
+        rz.setProperty("--wash", MODOS[k][5]);
+        rz.setProperty("--acao-foco", MODOS[k][6]);
+      }
+    /* trocar de modo fecha os ajustes: o cartao da engrenagem nao pode ficar
+       pendurado empurrando a tela (queixa de 23/08) */
+    var cfgx = document.getElementById("cartaoConfig");
+    var engx = document.getElementById("btConfig");
+    if (cfgx) cfgx.className = "cartao popover oculto";
+    if (engx) engx.className = "engr";
+    desenhaListaModos();
+  }
+  function desenhaListaModos(){
+    while (lista.firstChild) lista.removeChild(lista.firstChild);
+    for (var i = 0; i < MODOS.length; i++) (function(m){
+      var item = document.createElement("div");
+      item.className = "modo-item" + (m[0] === atual ? " atual" : "");
+      item.setAttribute("role", "button");
+      var pt = document.createElement("div"); pt.className = "mi-ponto";
+      pt.style.background = m[3];   /* o pontinho da logo, na cor da feature */
+      var mn = document.createElement("div"); mn.className = "mi-nome"; mn.textContent = m[1];
+      item.appendChild(pt); item.appendChild(mn);
+      /* ampliadinha no repouso, via JS: o pintor IGNOROU transform (24/08) */
+      item.addEventListener("mouseover", function(){
+        mn.style.fontSize = "13px";
+        pt.style.width = "9px"; pt.style.height = "9px";
+        pt.style.borderRadius = "4px";
+      });
+      item.addEventListener("mouseout", function(){
+        mn.style.fontSize = "";
+        pt.style.width = ""; pt.style.height = ""; pt.style.borderRadius = "";
+      });
+      item.addEventListener("click", function(){
+        mostraModo(m[0]);
+        lista.className = "picker-lista oculto";
+        chev.textContent = "▾";
+      });
+      lista.appendChild(item);
+    })(MODOS[i]);
+  }
+  /* so UM painel aberto por vez: modo, clipes ou ajustes */
+  function fechaConfig(){
+    var c = document.getElementById("cartaoConfig");
+    var e = document.getElementById("btConfig");
+    if (c) c.className = "cartao popover oculto";
+    if (e) e.className = "engr";
+    mostraRegistro(true);
+    if (window.mostraCamposDeNovo) window.mostraCamposDeNovo();
+  }
+  /* o popover "trepava" no REGISTRO (print de 24/08): enquanto os
+     ajustes estao abertos, o registro sai de cena */
+  function mostraRegistro(sim){
+    var lc = document.getElementById("logCab");
+    var lg = document.getElementById("log");
+    if (lc) lc.style.display = sim ? "" : "none";
+    if (lg && !sim) lg.className = "oculto";
+    if (!sim) { var ch = document.getElementById("logChev"); if (ch) ch.textContent = "▸"; }
+  }
+  function fechaClipes(){
+    var pc = document.getElementById("painelClipes");
+    if (pc) pc.className = "painel-clipes oculto";
+    if (window.mostraCamposDeNovo) window.mostraCamposDeNovo();
+  }
+  function fechaModos(){
+    lista.className = "picker-lista oculto";
+    chev.textContent = "▾";
+    if (window.mostraCamposDeNovo) window.mostraCamposDeNovo();
+  }
+  picker.addEventListener("click", function(){
+    var aberto = lista.className.indexOf("oculto") < 0;
+    fechaConfig(); fechaClipes();
+    lista.className = "picker-lista" + (aberto ? " oculto" : "");
+    chev.textContent = aberto ? "▾" : "▴";
+    /* campo nativo do UXP fura popup: some com os de fora enquanto abre */
+    if (aberto) { if (window.mostraCamposDeNovo) window.mostraCamposDeNovo(); }
+    else { if (window.escondeCamposFora) window.escondeCamposFora(lista); }
+  });
+  desenhaListaModos();
+  mostraModo("melhorar");
+
+  /* CLIQUE FORA FECHA (24/08). Sem composedPath (nao confiavel no UXP):
+     sobe pelo parentNode ate a raiz procurando quem "dono" do popup. */
+  function dentroDe(alvo, ids){
+    var el = alvo;
+    while (el) {
+      if (el.id && ids.indexOf(el.id) >= 0) return true;
+      el = el.parentNode;
+    }
+    return false;
+  }
+  document.addEventListener("click", function(ev){
+    if (!dentroDe(ev.target, ["modoPicker", "modoLista"])) fechaModos();
+    if (!dentroDe(ev.target, ["chipClipes", "painelClipes"])) fechaClipes();
+    if (!dentroDe(ev.target, ["btConfig", "cartaoConfig"])) fechaConfig();
+  }, true);
+
+  /* engrenagem: mostra/esconde o cartao de ajustes */
+  var eng = document.getElementById("btConfig");
+  var cfg = document.getElementById("cartaoConfig");
+  eng.addEventListener("click", function(){
+    var aberto = cfg.className.indexOf("oculto") < 0;
+    fechaModos(); fechaClipes();
+    cfg.className = "cartao popover" + (aberto ? " oculto" : "");
+    eng.className = "engr" + (aberto ? "" : " ligada");
+    mostraRegistro(aberto);
+    if (!aberto && window.desenhaVozesConfig) window.desenhaVozesConfig();
+    if (aberto) { if (window.mostraCamposDeNovo) window.mostraCamposDeNovo(); }
+    else { if (window.escondeCamposFora) window.escondeCamposFora(cfg); }
+  });
+
+  /* CLIQUE FORA FECHA (pedido de 24/08: "se eu clicar fora ela tem que
+     fechar"). Sem contains(): sobe por parentNode. O vigia roda na fase
+     de CAPTURA pra decidir antes de qualquer stopPropagation. */
+  function veioDe(alvo, raiz){
+    for (var e = alvo; e; e = e.parentNode) if (e === raiz) return true;
+    return false;
+  }
+  document.addEventListener("click", function(ev){
+    var t = ev.target;
+    var lst = document.getElementById("modoLista");
+    var pick = document.getElementById("modoPicker");
+    if (lst && lst.className.indexOf("oculto") < 0
+        && !veioDe(t, lst) && !veioDe(t, pick)) fechaModos();
+    var cfg = document.getElementById("cartaoConfig");
+    var eng = document.getElementById("btConfig");
+    if (cfg && cfg.className.indexOf("oculto") < 0
+        && !veioDe(t, cfg) && !veioDe(t, eng)) fechaConfig();
+    var pc = document.getElementById("painelClipes");
+    var chp = document.getElementById("chipClipes");
+    if (pc && pc.className.indexOf("oculto") < 0
+        && !veioDe(t, pc) && !veioDe(t, chp)) fechaClipes();
+    /* dropdowns proprios: cada .selwrap aberto que nao recebeu o clique */
+    var wraps = document.getElementsByClassName("selwrap");
+    for (var i = 0; i < wraps.length; i++) {
+      if (veioDe(t, wraps[i])) continue;
+      var ls = wraps[i].getElementsByClassName("sellista");
+      for (var j = 0; j < ls.length; j++)
+        if (ls[j].className.indexOf("oculto") < 0) {
+          ls[j].className = "sellista oculto";
+          var st = wraps[i].getElementsByClassName("selseta");
+          if (st[0]) st[0].textContent = "▾";
+        }
+    }
+  }, true);
+
+  /* registro recolhido; abre no clique (o main.js abre sozinho no erro) */
+  /* chip "N clipes": abre/fecha a lista de clipes */
+  var chip = document.getElementById("chipClipes");
+  chip.addEventListener("click", function(){
+    var pc = document.getElementById("painelClipes");
+    var aberto = pc.className.indexOf("oculto") < 0;
+    fechaModos(); fechaConfig();
+    pc.className = "painel-clipes" + (aberto ? " oculto" : "");
+    if (aberto) { if (window.mostraCamposDeNovo) window.mostraCamposDeNovo(); }
+    else { if (window.escondeCamposFora) window.escondeCamposFora(pc); }
+  });
+
+  var cab = document.getElementById("logCab");
+  cab.addEventListener("click", function(){
+    var log = document.getElementById("log");
+    var aberto = log.className.indexOf("oculto") < 0;
+    log.className = aberto ? "oculto" : "";
+    document.getElementById("logChev").textContent = aberto ? "▸" : "▾";
+  });
+})();
+</script>
+<script>
+/* SONDA DE UI — mede o que o UXP DE FATO aplicou e manda pro servidor
+   (/api/sonda grava em painel-sonda\ultimo-log.txt). Existe pra eu parar
+   de consertar CSS de UXP no escuro: o Luan nao tem DevTools aqui.
+   Pode sair quando a UI estabilizar. */
+(function(){
+  function medir(sel, props){
+    try{
+      var el = document.querySelector(sel);
+      if (!el) return {seletor: sel, achou: false};
+      var c = getComputedStyle(el), r = el.getBoundingClientRect();
+      var o = {seletor: sel, achou: true, larg: Math.round(r.width), alt: Math.round(r.height)};
+      for (var i=0;i<props.length;i++) o[props[i]] = c[props[i]];
+      return o;
+    }catch(e){ return {seletor: sel, falhou: String(e)}; }
+  }
+  setTimeout(function(){
+    var d;
+    try{
+      d = {
+        quando: "sonda de UI do painel DUBX (clone do app)",
+        janela: {w: window.innerWidth, h: window.innerHeight},
+        rolagem: {
+          bodyScrollH: document.body.scrollHeight,
+          bodyClientH: document.body.clientHeight,
+          docScrollH: document.documentElement.scrollHeight,
+          docClientH: document.documentElement.clientHeight,
+          overflowYbody: getComputedStyle(document.body).overflowY,
+          precisaRolar: document.body.scrollHeight > document.body.clientHeight
+        },
+        erros_js: window.__erros,
+        // a API que a colocacao na timeline depende — se algo aqui vier
+        // "faltando", o Separar nao consegue por faixa nenhuma
+        api: (function(){
+          try{
+            var pp = require("premierepro");
+            return {
+              Constants: !!pp.Constants,
+              TrackItemType: !!(pp.Constants && pp.Constants.TrackItemType),
+              SequenceEditor: !!pp.SequenceEditor,
+              TickTime: !!pp.TickTime
+            };
+          }catch(e){ return {falhou: String(e)}; }
+        })(),
+        elementos: [
+          medir(".logo-nome", ["fontSize","fontWeight","letterSpacing"]),
+          medir(".sub", ["fontSize","marginTop"]),
+          /* ⬇ 23/08: o que eu NAO consigo ver daqui. Ele disse "ta zuado
+             ainda" e eu nao vou chutar CSS de novo — isto mede. */
+          medir(".seg", ["backgroundColor","display","padding","borderRadius","marginTop"]),
+          medir(".sbt", ["backgroundColor","color","flexGrow","height","borderRadius","marginLeft","borderStyle"]),
+          medir(".sbt.ativa", ["backgroundColor","color","fontWeight"]),
+          medir(".acao", ["backgroundColor","color","height","borderRadius","width"]),
+          medir(".ghost", ["backgroundColor","color","height","borderRadius"]),
+          medir(".cartao", ["marginBottom","padding","backgroundColor","borderRadius"]),
+          medir(".abas", ["marginBottom","padding"]),
+          medir(".n", ["flexBasis","fontSize","marginRight"]),
+          medir(".d", ["flexBasis","fontSize","marginLeft","textAlign"]),
+          medir(".ctrl", ["borderTopWidth","padding","display"]),
+          medir("input.num", ["width","padding","marginLeft"]),
+          medir("input[type=range]", ["backgroundColor","height","borderRadius"]),
+          medir("input[type=password]", ["height","backgroundColor","borderRadius"]),
+          medir(".abas", ["display","padding"]),
+          medir(".aba", ["fontSize","height","borderRadius"]),
+          medir(".aba.on", ["backgroundColor","color"]),
+          medir(".cartao", ["padding","borderRadius","backgroundColor"]),
+          medir(".rotulo", ["fontSize","letterSpacing","textTransform"]),
+          medir("#escanear", ["fontSize","height"]),
+          medir("#melhorar", ["fontSize","height","backgroundColor"]),
+          medir(".seg", ["display","padding"]),
+          // .sbt substituiu `.seg button` em 20/08 — se flexGrow voltar 0 aqui,
+          // o UXP tambem ignora classe direta em <button> e o desenho muda.
+          medir(".sbt", ["fontSize","flexGrow","height","borderRadius"]),
+          medir(".sbt.ativa", ["backgroundColor","color","fontWeight"]),
+          medir(".campo", ["flexGrow","width","height"]),
+          medir(".fila", ["display"]),
+          medir("#lufs", ["width","height","fontSize"]),
+          medir("#rotLegenda", ["height","fontSize"]),
+          medir("#log", ["height","overflowY"])
+        ]
+      };
+    }catch(e){ d = {falhou: String(e), erros_js: window.__erros}; }
+    fetch("http://127.0.0.1:7788/api/sonda", {method:"POST", body: JSON.stringify(d, null, 2)})
+      .catch(function(){});
+  }, 900);
+})();
+</script>
+</body>
+</html>

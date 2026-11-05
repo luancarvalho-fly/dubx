@@ -1,0 +1,30 @@
+{
+    "id": "com.luan.dubx.painel",
+    "name": "DUBX",
+    "version": "0.1.0",
+    "main": "index.html",
+    "manifestVersion": 5,
+    "host": {
+        "app": "premierepro",
+        "minVersion": "25.6.0"
+    },
+    "requiredPermissions": {
+        "network": {
+            "domains": "all"
+        },
+        "localFileSystem": "request"
+    },
+    "entrypoints": [
+        {
+            "type": "panel",
+            "id": "dubx",
+            "label": {
+                "default": "DUBX"
+            },
+            "minimumSize": { "width": 320, "height": 420 },
+            "maximumSize": { "width": 2200, "height": 2200 },
+            "preferredDockedSize": { "width": 380, "height": 640 },
+            "preferredFloatingSize": { "width": 380, "height": 640 }
+        }
+    ]
+}

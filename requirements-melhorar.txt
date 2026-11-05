@@ -1,0 +1,7 @@
+# Melhorar (Sidon + nivelamento). O torch vem do índice da NVIDIA (CUDA 12.8) — o instalar.ps1 cuida disso.
+transformers==5.15.0
+huggingface_hub==1.27.0
+safetensors==0.8.0
+tokenizers==0.22.2
+soundfile==0.14.0
+numpy==2.5.2

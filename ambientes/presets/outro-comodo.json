@@ -1,0 +1,8 @@
+{
+  "nome": "Outro cômodo (atrás da parede)",
+  "descricao": "voz abafada vindo do cômodo ao lado",
+  "ir": "quarto.wav",
+  "wet": 0.5,
+  "pre": "lowpass=f=1100,highpass=f=150",
+  "pos": "volume=-2dB"
+}

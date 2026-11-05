@@ -1,0 +1,9 @@
+{
+    "nome":  "Caverna",
+    "descricao":  "enorme, escuro, reflexões espaçadas — quase eco",
+    "ir":  "caverna.wav",
+    "wet":  0.7,
+    "pre":  "highpass=f=70",
+    "pos":  "",
+    "cena":  true
+}

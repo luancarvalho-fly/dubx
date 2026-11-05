@@ -1,0 +1,47 @@
+{
+  "nome": "Short com 2 personagens",
+  "descricao": "Separa pelo roteiro, troca a voz do 2º personagem, junta tudo de volta com música e efeitos, e nivela.",
+  "pede": [
+    "roteiro",
+    "voz"
+  ],
+  "passos": [
+    {
+      "tipo": "separar",
+      "titulo": "Separar por personagem",
+      "params": {
+        "motor_diar": "roteiro",
+        "limpeza": "combinado",
+        "roteiro": "?roteiro"
+      }
+    },
+    {
+      "tipo": "trocar",
+      "titulo": "Trocar a voz 2",
+      "de": "voz2",
+      "params": {
+        "voz": "?voz",
+        "motor_vc": "rvc"
+      }
+    },
+    {
+      "tipo": "juntar",
+      "titulo": "Juntar as faixas",
+      "de": [
+        "voz1",
+        "@anterior",
+        "musica",
+        "efeitos"
+      ],
+      "params": {}
+    },
+    {
+      "tipo": "melhorar",
+      "titulo": "Nivelar",
+      "params": {
+        "dose": "100",
+        "lufs": "-16"
+      }
+    }
+  ]
+}

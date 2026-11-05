@@ -1,0 +1,22 @@
+{
+  "nome": "Limpar e legendar",
+  "descricao": "Nivela e reconstrói o áudio, depois gera o .srt na pasta do arquivo. O mais rápido dos fluxos.",
+  "passos": [
+    {
+      "tipo": "melhorar",
+      "titulo": "Limpar",
+      "params": {
+        "dose": "100",
+        "lufs": "-16"
+      }
+    },
+    {
+      "tipo": "legenda",
+      "titulo": "Legendar",
+      "params": {
+        "preset": "normal",
+        "roteiro": ""
+      }
+    }
+  ]
+}

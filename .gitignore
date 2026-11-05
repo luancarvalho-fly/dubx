@@ -1,0 +1,13 @@
+# o que nasce no PC de quem usa: nunca sobe
+motor/.venv*/
+__pycache__/
+*.pyc
+*.log
+*.bak*
+trabalho/
+vozes/
+treino/
+historico.json
+config.json
+presets.json
+.janela/

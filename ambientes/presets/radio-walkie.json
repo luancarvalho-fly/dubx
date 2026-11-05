@@ -1,0 +1,8 @@
+{
+  "nome": "Rádio / Walkie-talkie",
+  "descricao": "banda estreita e compressão pesada — comunicação de rádio",
+  "ir": "",
+  "wet": 0,
+  "pre": "",
+  "pos": "highpass=f=400,lowpass=f=2600,acompressor=threshold=0.03:ratio=9:attack=2:release=80:makeup=6"
+}

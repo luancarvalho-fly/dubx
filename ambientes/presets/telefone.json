@@ -1,0 +1,8 @@
+{
+  "nome": "Telefone",
+  "descricao": "banda de voz clássica 300–3400 Hz, comprimida",
+  "ir": "",
+  "wet": 0,
+  "pre": "",
+  "pos": "highpass=f=300,lowpass=f=3400,acompressor=threshold=0.06:ratio=6:attack=5:release=120:makeup=4"
+}

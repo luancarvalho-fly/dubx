@@ -1,0 +1,9 @@
+{
+    "nome":  "Banheiro",
+    "descricao":  "azulejo — reverb curto, denso e brilhante",
+    "ir":  "banheiro.wav",
+    "wet":  0.55,
+    "pre":  "highpass=f=110",
+    "pos":  "treble=g=1.5",
+    "cena":  true
+}
