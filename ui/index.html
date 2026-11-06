@@ -705,6 +705,12 @@ const CONTROLES = {
      dica:"Muito fiel ≈ 1h30 com ~5 min de material. Rápido (50) serve pra testar a voz antes de investir."}
   ],
   melhorar: [
+    // 05/11: motor escolhível pra ele comparar (pesquisa: nenhum aberto reconstrói melhor que o Sidon; o ClearerVoice só limpa)
+    {id:"motor_melhorar", nome:"Motor", tipo:"escolha", val:"sidon",
+     op:[["sidon","Sidon (padrão)","reconstrói a voz inteira: salva gravação estragada, mas pode soar mais 'refeita'."],
+         ["clearervoice","ClearerVoice","só tira ruído e eco, mantém a voz original — mais natural, não conserta gravação ruim."],
+         ["clearervoice+sidon","ClearerVoice + Sidon","limpa primeiro e o Sidon reconstrói em cima do áudio já limpo."]],
+     dica:"Depois de melhorar, o slider de reconstrução no cartão mistura o original com o resultado deste motor, ao vivo."},
     {id:"dose", nome:"Reconstrução", min:0, max:100, passo:1, val:100, suf:"%",
      dica:"0 só nivela o volume. 100 reconstrói a voz — use em gravação estragada."}
   ],

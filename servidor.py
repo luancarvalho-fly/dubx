@@ -239,7 +239,8 @@ def _modelo_de(p):
             return f"ElevenLabs · {p.get('el_nome') or p.get('voz') or p.get('el_voice_id', '?')}"
         return f"{'Seed-VC' if mv == 'seedvc' else 'RVC'} · {p.get('voz', '?')}"
     if modo == "melhorar":
-        return "Sidon"
+        return {"clearervoice": "ClearerVoice", "clearervoice+sidon": "ClearerVoice + Sidon"}.get(
+            str(p.get("motor_melhorar") or "sidon").lower(), "Sidon")
     if modo == "dublar":
         return f"Chatterbox · {p.get('origem', 'pt')}→{p.get('alvo', 'en')}"
     if modo == "falar":
@@ -603,9 +604,28 @@ def modo_melhorar(t, p):
     _passo(t, 1, 2, "preparando o audio...")
     fonte = _audio_de(t, Path(p["arquivo"]))   # video: extrai o audio antes
     destino = TRAB / f"{t}_melhorado.wav"
-    _passo(t, 2, 2, "melhorando...", fracao=0.02)
-    _melhora_vendo(t, 2, 2, fonte, destino, dose, lufs, base=0.02, peso=0.96,
-                   partes=TRAB / f"{t}_partes")
+    # 05/11 (ele: «pode baixar esse Clearer Voice... pra gente testar»): motor do Melhorar escolhivel.
+    #   sidon (padrao) · clearervoice (MossFormer2_SE_48K: so limpa) · clearervoice+sidon (limpa, depois reconstroi)
+    # Em todos o slider de reconstrucao continua: seco = ORIGINAL, molhado = o que o motor devolveu.
+    motor = str(p.get("motor_melhorar") or "sidon").lower()
+    extra = []
+    if motor.startswith("clearervoice"):
+        # no PC do Luan mora em apps\separadores; no pacote do GitHub, em motor\clearervoice (o INSTALAR monta)
+        cv_dir = SEPARADORES if PY_SEPNOVO.exists() else MOTOR / "clearervoice"
+        cv_py = _venv_py(cv_dir / ".venv")
+        if not cv_py.exists():
+            raise RuntimeError("o ClearerVoice não está instalado neste PC — rode o INSTALAR.bat de novo")
+        _passo(t, 2, 2, "limpando com o ClearerVoice…", fracao=0.02)
+        limpo = TRAB / f"{t}_clearervoice.wav"
+        roda([cv_py, cv_dir / "rodar_clearervoice_se.py", "-i", fonte, "-o", limpo])
+        if motor == "clearervoice":
+            extra = ["--molhado-pronto", limpo]
+        else:
+            extra = ["--seco", fonte]
+            fonte = limpo
+    _passo(t, 2, 2, "melhorando...", fracao=0.3 if extra else 0.02)
+    _melhora_vendo(t, 2, 2, fonte, destino, dose, lufs, base=0.3 if extra else 0.02, peso=0.68 if extra else 0.96,
+                   partes=TRAB / f"{t}_partes", extra=extra)
     return destino
 
 
@@ -649,7 +669,7 @@ def remistura_geracao(base, dose, arquivo=None, lufs=-16):
 _RE_SIDON = re.compile(r"\bSIDON (\d+)/(\d+)")
 
 
-def _melhora_vendo(t, etapa, de, fonte, destino, dose, lufs, base, peso, partes=None):
+def _melhora_vendo(t, etapa, de, fonte, destino, dose, lufs, base, peso, partes=None, extra=()):
     """voz.py pelo roda_vendo, com a barra andando pedaco a pedaco.
 
     Por que existe (29/09/2026): o painel fazia "etapa 2 de 2" = 100% no
@@ -672,7 +692,7 @@ def _melhora_vendo(t, etapa, de, fonte, destino, dose, lufs, base, peso, partes=
 
     roda_vendo([PY_VOZ, MOTOR / "voz.py", "-i", fonte, "-o", destino,
                 "--dose", str(dose), "--lufs", str(lufs)]
-               + (["--partes", partes] if partes else []), olho=olho)
+               + (["--partes", partes] if partes else []) + list(extra), olho=olho)
 
 
 def _dose_sidon(p):

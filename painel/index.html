@@ -631,7 +631,15 @@
   <div class="cartao" data-tela="melhorar">
     <div class="rotulo colado">MELHORAR</div>
     <div class="rotulo-sub">nivela e reconstrói a voz com o Sidon</div>
-    <div class="ctrl" style="border:none; padding-top:0" title="0 só nivela o volume. 100 reconstrói a voz — use em gravação estragada.">
+    <div class="ctrl" style="border:none; padding-top:0">
+      <span class="n">Motor</span>
+      <select class="campo" id="mlMotor">
+        <option value="sidon" title="reconstrói a voz inteira: salva gravação estragada, mas pode soar mais 'refeita'.">Sidon (padrão)</option>
+        <option value="clearervoice" title="só tira ruído e eco, mantém a voz original — mais natural, não conserta gravação ruim.">ClearerVoice</option>
+        <option value="clearervoice+sidon" title="limpa primeiro e o Sidon reconstrói em cima do áudio já limpo.">ClearerVoice + Sidon</option>
+      </select>
+    </div>
+    <div class="ctrl" title="0 só nivela o volume. 100 reconstrói a voz — use em gravação estragada.">
       <span class="n">Reconstrução</span>
       <input id="dose" type="range" min="0" max="100" step="1" value="100">
       <span class="d" id="dDose">100%</span>

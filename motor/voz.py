@@ -179,7 +179,7 @@ def carrega_sidon(device="cuda"):
     return sidon_cli, (fe, dec, pre, device)
 
 
-def trata_um(src, dst, dose, alvo, sidon, partes=None):
+def trata_um(src, dst, dose, alvo, sidon, partes=None, molhado_pronto=None, seco_de=None):
     """A ordem aqui foi comprada com erro e nao deve ser mexida:
     1. Sidon PRIMEIRO (ele renormaliza o pico por dentro — nivelar antes e trabalho perdido)
     2. os dois lados no MESMO LUFS (senao a dose vira volume)
@@ -193,19 +193,24 @@ def trata_um(src, dst, dose, alvo, sidon, partes=None):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         seco = tmp / "seco.wav"
-        antes = nivelar(src, seco, alvo)
+        # 05/11: ClearerVoice+Sidon — o Sidon entra na voz ja limpa, mas o lado "seco" do slider e o ORIGINAL
+        antes = nivelar(seco_de or src, seco, alvo)
 
         if dose <= 0 and not partes:
             shutil.move(str(seco), str(dst))
             return antes, None
 
-        mod, (fe, dec, pre, device) = sidon
-        cru = tmp / "sidon.wav"
-        with torch.inference_mode():
-            # "SIDON 3/18" e lido pelo servidor (roda_vendo) e vira a barra
-            # do painel — formato combinado com _RE_SIDON no servidor.py
-            mod.process_one(src, cru, fe, dec, pre, device, True,
-                            lambda feito, total: log(f"SIDON {feito}/{total}"))
+        if molhado_pronto:
+            # 05/11: outro motor (ClearerVoice) ja fez o "molhado"; aqui so nivela, alinha e guarda as partes
+            cru = Path(molhado_pronto)
+        else:
+            mod, (fe, dec, pre, device) = sidon
+            cru = tmp / "sidon.wav"
+            with torch.inference_mode():
+                # "SIDON 3/18" e lido pelo servidor (roda_vendo) e vira a barra
+                # do painel — formato combinado com _RE_SIDON no servidor.py
+                mod.process_one(src, cru, fe, dec, pre, device, True,
+                                lambda feito, total: log(f"SIDON {feito}/{total}"))
 
         nivelado = tmp / "molhado_nivelado.wav"
         nivelar(cru, nivelado, alvo)
@@ -244,6 +249,10 @@ def main():
     p.add_argument("--device", default="cuda")
     p.add_argument("--partes", default=None,
                    help="pasta onde guardar seco + reconstruido (um arquivo so) pro slider remisturar depois")
+    p.add_argument("--molhado-pronto", default=None,
+                   help="usa este arquivo como reconstruido (outro motor ja processou) — nao roda o Sidon")
+    p.add_argument("--seco", default=None,
+                   help="arquivo do lado seco (padrao: a propria entrada)")
     p.add_argument("--remisturar", default=None,
                    help="pasta de partes de um melhorar anterior: so mistura na dose nova, sem Sidon")
     a = p.parse_args()
@@ -274,7 +283,7 @@ def main():
         sys.exit(1)
 
     sidon = None
-    if dose > 0 or a.partes:
+    if (dose > 0 or a.partes) and not a.molhado_pronto:
         log("carregando o modelo (uma vez so)…")
         sidon = carrega_sidon(a.device)
 
@@ -294,7 +303,7 @@ def main():
             partes = None
             if a.partes:
                 partes = Path(a.partes) / f.stem if len(arquivos) > 1 else Path(a.partes)
-            antes, _ = trata_um(f, dst, dose, a.lufs, sidon, partes)
+            antes, _ = trata_um(f, dst, dose, a.lufs, sidon, partes, a.molhado_pronto, a.seco)
             log(f"  [{n}/{len(arquivos)}] {f.name}: {antes:.1f} → {a.lufs:.1f} LUFS")
             feitos.append(str(dst))
         except Exception as exc:  # noqa: BLE001

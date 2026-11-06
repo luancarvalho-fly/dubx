@@ -713,7 +713,7 @@ async function melhorar() {
    * propósito: regravar só o trecho apagaria o resto do arquivo. */
   if (MLMODO === "arquivo") {
     return rodaLote(
-      { modo: "melhorar_no_lugar", dose: DOSE, lufs: Number(elLufs.value) || -16 },
+      { modo: "melhorar_no_lugar", dose: DOSE, lufs: Number(elLufs.value) || -16, motor_melhorar: motorMelhorar() },
       "melhorando");
   }
   return melhorarNovo();
@@ -746,7 +746,7 @@ async function melhorarNovo() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.assign(
           { modo: "melhorar", arquivo: c.caminho,
-            dose: DOSE, lufs: Number(elLufs.value) || -16 }, trecho || {})),
+            dose: DOSE, lufs: Number(elLufs.value) || -16, motor_melhorar: motorMelhorar() }, trecho || {})),
       });
       const { tarefa, erro } = await r.json();
       if (!tarefa) throw new Error(erro || "o DUBX não aceitou a tarefa");
@@ -788,6 +788,8 @@ async function melhorarNovo() {
  * brincando e ver qual eu prefiro»). O melhorar guarda seco + Sidon no servidor; soltar o slider Dose manda
  * "remisturar" pros arquivos do ÚLTIMO melhorar: o servidor regrava o mesmo wav e aqui só se recarrega a mídia. */
 let ULTIMO_MELHORAR = [];   // {tarefa, arquivo}
+// 05/11: motor do Melhorar (Sidon / ClearerVoice / os dois) — o slider de reconstrução vale pros três
+function motorMelhorar() { const el = document.getElementById("mlMotor"); return el ? el.value : "sidon"; }
 let REMIX_PENDENTE = false;
 
 async function clipesDoArquivo(caminho) {
@@ -3489,7 +3491,7 @@ seguro(function () {
 
 function payloadEdicao(acao, p) {
   if (acao === "melhorar")
-    return { modo: "melhorar", dose: DOSE, lufs: Number(elLufs.value) || -16 };
+    return { modo: "melhorar", dose: DOSE, lufs: Number(elLufs.value) || -16, motor_melhorar: motorMelhorar() };
   if (acao === "trocar") {
     const voz = vozDaTroca();
     if (!voz) throw new Error(faltaVozTroca());

@@ -1,10 +1,11 @@
 # o que nasce no PC de quem usa: nunca sobe
-motor/.venv*/
+.venv*/
 __pycache__/
 *.pyc
 *.log
 *.bak*
 trabalho/
+checkpoints/
 vozes/
 treino/
 historico.json
