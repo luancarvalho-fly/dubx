@@ -100,7 +100,7 @@ def main():
     ap.add_argument("--declipado", default=None,
                     help="08/11 (ele: «Sim, os dois lados»): grava aqui a ENTRADA com o topo refeito (float) — vira o lado "
                          "original do slider, senão abaixo de 100%% o clipe da gravação volta")
-    ap.add_argument("--nivelador", default="desligado", choices=["desligado", "leve", "forte"],
+    ap.add_argument("--nivelador", default="desligado", choices=["desligado", "leve", "medio", "forte"],
                     help="08/11 (ele: «coloca o Levelator na pré-etapa... nivela antes, pra depois passar o Clear Voice»)")
     ap.add_argument("--nivelador-dir", default=None, help="pasta do nivelador.py (o motor do DUBX)")
     a = ap.parse_args()

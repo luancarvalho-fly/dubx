@@ -20,6 +20,7 @@ FORCAS = {
     # forca = quanto da diferença pro volume típico ele corrige; teto de subida/descida em dB
     # 08/11: teto do forte 12 → 20 dB (a fala baixa do teste estava 22 dB abaixo e o ClearerVoice apagava)
     "leve": dict(forca=0.6, sobe=8.0, desce=6.0, solta=1.2),
+    "medio": dict(forca=0.75, sobe=14.0, desce=7.5, solta=1.0),   # 08/11: ele pediu o meio-termo pra comparar
     "forte": dict(forca=0.9, sobe=20.0, desce=9.0, solta=0.8),
 }
 QUADRO = 0.05          # 50 ms

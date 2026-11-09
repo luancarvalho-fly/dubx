@@ -242,7 +242,7 @@ def _modelo_de(p):
         m = {"clearervoice": "ClearerVoice", "clearervoice+sidon": "ClearerVoice + Sidon"}.get(
             str(p.get("motor_melhorar") or "sidon").lower(), "Sidon")
         nv = _nivelador_de(p)
-        return f"{m} · Nivelador {nv}" if nv != "desligado" else m
+        return f"{m} · Nivelador {dict(medio='médio').get(nv, nv)}" if nv != "desligado" else m
     if modo == "dublar":
         return f"Chatterbox · {p.get('origem', 'pt')}→{p.get('alvo', 'en')}"
     if modo == "falar":
@@ -598,9 +598,9 @@ def nivelar(entrada, saida, lufs, dose="nivelar"):
 
 def _nivelador_de(p):
     """08/11 (o amigo: «alguns momentos o áudio não compensa e fica tipo baixo»; ele: «tipo aquele Levelator»):
-    desligado · leve · forte."""
+    desligado · leve · medio · forte."""
     v = str(p.get("nivelador") or "desligado").lower()
-    return v if v in ("leve", "forte") else "desligado"
+    return v if v in ("leve", "medio", "forte") else "desligado"
 
 
 def _nivelar_antes(t, fonte, nv):
