@@ -617,11 +617,17 @@ def modo_melhorar(t, p):
             raise RuntimeError("o ClearerVoice não está instalado neste PC — rode o INSTALAR.bat de novo")
         _passo(t, 2, 2, "limpando com o ClearerVoice…", fracao=0.02)
         limpo = TRAB / f"{t}_clearervoice.wav"
-        roda([cv_py, cv_dir / "rodar_clearervoice_se.py", "-i", fonte, "-o", limpo])
+        # 08/11 (ele: «Sim, os dois lados»): o lado ORIGINAL do slider tambem sai com o topo cortado refeito
+        declipado = TRAB / f"{t}_original_declipado.wav"
+        roda([cv_py, cv_dir / "rodar_clearervoice_se.py", "-i", fonte, "-o", limpo, "--declipado", declipado])
+        # 08/11 (Kakashi 21:48, «tá dando uns pipocos... adota isso como default aqui pro Clear Voice»): o executor agora
+        # devolve FLOAT (sem a volta do int16 do clearvoice) e com o topo cortado da entrada refeito; o pico pode passar
+        # de 0 dBFS, e o --picos-suaves segura no nivelar com limitador em vez do loudnorm dinamico.
+        seco = declipado if declipado.exists() else fonte
         if motor == "clearervoice":
-            extra = ["--molhado-pronto", limpo]
+            extra = ["--molhado-pronto", limpo, "--seco", seco, "--picos-suaves"]
         else:
-            extra = ["--seco", fonte]
+            extra = ["--seco", seco, "--picos-suaves"]
             fonte = limpo
     _passo(t, 2, 2, "melhorando...", fracao=0.3 if extra else 0.02)
     _melhora_vendo(t, 2, 2, fonte, destino, dose, lufs, base=0.3 if extra else 0.02, peso=0.68 if extra else 0.96,
@@ -644,8 +650,11 @@ def remistura_geracao(base, dose, arquivo=None, lufs=-16):
     if not str(wav) or wav.suffix.lower() != ".wav":
         raise RuntimeError("não achei o áudio dessa geração pra regravar")
     novo = TRAB / f"{base}_remisturado.wav"
-    roda([PY_VOZ, MOTOR / "voz.py", "-i", partes / "seco.wav", "-o", novo, "--remisturar", partes,
-          "--dose", str(dose), "--lufs", str(lufs)])
+    cmd = [PY_VOZ, MOTOR / "voz.py", "-i", partes / "seco.wav", "-o", novo, "--remisturar", partes,
+           "--dose", str(dose), "--lufs", str(lufs)]
+    if "clearervoice" in str(item.get("modelo") or "").lower():
+        cmd.append("--picos-suaves")   # 08/11: mesma regra do melhorar com ClearerVoice
+    roda(cmd)
     shutil.copy2(novo, wav)
     novo.unlink(missing_ok=True)
     saida = Path(str(item.get("saida") or ""))

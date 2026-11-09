@@ -54,6 +54,16 @@ def acha_ffmpeg():
 
 
 FFMPEG = acha_ffmpeg()
+PICOS_SUAVES = False   # liga com --picos-suaves (motores do ClearerVoice, 08/11); ver nivelar()
+
+
+def _duracao(arq):
+    try:
+        import soundfile as sf
+        i = sf.info(str(arq))
+        return i.frames / float(i.samplerate)
+    except Exception:
+        return 0.0
 
 
 def log(msg):
@@ -89,6 +99,13 @@ def nivelar(src, dst, alvo):
           f":measured_I={m['input_i']}:measured_TP={m['input_tp']}"
           f":measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}"
           f":offset={m['target_offset']}:linear=true,aresample=48000")
+    # 08/11 (ClearerVoice): o topo refeito do clipe passa de 0 dBFS; aí o loudnorm não consegue o modo linear e cai no
+    # DINÂMICO, que comprime a fala inteira (medido: desvia 23,6 dB do ganho puro). Com picos_suaves: ganho exato pro
+    # alvo + limitador a 4x só nos picos (desvia 28,6 dB, mexe só onde passou). Atraso do limitador (0,5 ms) é cortado.
+    if PICOS_SUAVES and m.get("normalization_type") == "dynamic" and _duracao(src) >= 3.0:
+        ganho = 10 ** ((float(alvo) - float(m["input_i"])) / 20)
+        af = (f"volume={ganho:.6f},aresample=192000,"
+              f"alimiter=limit=0.84:attack=0.5:release=40:level=0:asc=1:latency=1,aresample=48000")
     r = roda([FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-i", str(src),
               "-af", af, "-c:a", "pcm_s24le", str(dst)])
     if r.returncode != 0:
@@ -255,7 +272,11 @@ def main():
                    help="arquivo do lado seco (padrao: a propria entrada)")
     p.add_argument("--remisturar", default=None,
                    help="pasta de partes de um melhorar anterior: so mistura na dose nova, sem Sidon")
+    p.add_argument("--picos-suaves", action="store_true",
+                   help="08/11: se o loudnorm cair no modo dinamico (pico passou de 0 dBFS), ganho + limitador so nos picos")
     a = p.parse_args()
+    global PICOS_SUAVES
+    PICOS_SUAVES = bool(a.picos_suaves)
 
     dose = PRESETS.get(str(a.dose).lower())
     if dose is None:
