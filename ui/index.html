@@ -711,6 +711,11 @@ const CONTROLES = {
          ["clearervoice","ClearerVoice","só tira ruído e eco, mantém a voz original — mais natural, não conserta gravação ruim."],
          ["clearervoice+sidon","ClearerVoice + Sidon","limpa primeiro e o Sidon reconstrói em cima do áudio já limpo."]],
      dica:"Depois de melhorar, o slider de reconstrução no cartão mistura o original com o resultado deste motor, ao vivo."},
+    {id:"nivelador", nome:"Nivelador", tipo:"escolha", val:"desligado",
+     op:[["desligado","Desligado","só acerta o volume médio do arquivo inteiro — frase baixa continua baixa."],
+         ["leve","Leve","aproxima as frases baixas e altas sem mudar o jeito da fala."],
+         ["forte","Forte","tudo no mesmo nível, tipo Levelator; salva fala longe do microfone."]],
+     dica:"Entra ANTES do motor: sobe a fala baixa pra o ClearerVoice não apagar ela como se fosse ruído. Só mexe onde tem fala (detector de voz) — no silêncio não sobe ruído. Vale nos dois lados do slider."},
     {id:"dose", nome:"Reconstrução", min:0, max:100, passo:1, val:100, suf:"%",
      dica:"0 só nivela o volume. 100 reconstrói a voz — use em gravação estragada."}
   ],

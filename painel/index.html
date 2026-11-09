@@ -639,6 +639,14 @@
         <option value="clearervoice+sidon" title="limpa primeiro e o Sidon reconstrói em cima do áudio já limpo.">ClearerVoice + Sidon</option>
       </select>
     </div>
+    <div class="ctrl" style="border:none; padding-top:0" title="Entra ANTES do motor: sobe a fala baixa pra o modelo não apagar. Só mexe onde tem fala.">
+      <span class="n">Nivelador</span>
+      <select class="campo" id="mlNivelador">
+        <option value="desligado" title="só acerta o volume médio do arquivo inteiro.">Desligado</option>
+        <option value="leve" title="aproxima as frases baixas e altas sem mudar o jeito da fala.">Leve</option>
+        <option value="forte" title="tudo no mesmo nível, tipo Levelator; salva fala longe do microfone.">Forte</option>
+      </select>
+    </div>
     <div class="ctrl" title="0 só nivela o volume. 100 reconstrói a voz — use em gravação estragada.">
       <span class="n">Reconstrução</span>
       <input id="dose" type="range" min="0" max="100" step="1" value="100">

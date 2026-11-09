@@ -239,8 +239,10 @@ def _modelo_de(p):
             return f"ElevenLabs · {p.get('el_nome') or p.get('voz') or p.get('el_voice_id', '?')}"
         return f"{'Seed-VC' if mv == 'seedvc' else 'RVC'} · {p.get('voz', '?')}"
     if modo == "melhorar":
-        return {"clearervoice": "ClearerVoice", "clearervoice+sidon": "ClearerVoice + Sidon"}.get(
+        m = {"clearervoice": "ClearerVoice", "clearervoice+sidon": "ClearerVoice + Sidon"}.get(
             str(p.get("motor_melhorar") or "sidon").lower(), "Sidon")
+        nv = _nivelador_de(p)
+        return f"{m} · Nivelador {nv}" if nv != "desligado" else m
     if modo == "dublar":
         return f"Chatterbox · {p.get('origem', 'pt')}→{p.get('alvo', 'en')}"
     if modo == "falar":
@@ -594,6 +596,22 @@ def nivelar(entrada, saida, lufs, dose="nivelar"):
     return saida
 
 
+def _nivelador_de(p):
+    """08/11 (o amigo: «alguns momentos o áudio não compensa e fica tipo baixo»; ele: «tipo aquele Levelator»):
+    desligado · leve · forte."""
+    v = str(p.get("nivelador") or "desligado").lower()
+    return v if v in ("leve", "forte") else "desligado"
+
+
+def _nivelar_antes(t, fonte, nv):
+    """Nivelador ANTES do motor (ele, 08/11: «nivela antes, pra depois passar o Clear Voice... o modelo ignora umas
+    falas que estão muito baixas»). Caminho do Sidon; no ClearerVoice o próprio executor nivela (depois de refazer o
+    topo cortado). Devolve o arquivo nivelado (float)."""
+    saida = TRAB / f"{t}_nivelado.wav"
+    roda([PY_VOZ, MOTOR / "nivelador.py", "-i", fonte, "-o", saida, "--forca", nv])
+    return saida
+
+
 def modo_melhorar(t, p):
     # _passo: sem isto a barrinha do painel ficava parada em 30% (o
     # fallback do barraTarefa quando a tarefa nao conta etapa). O
@@ -608,7 +626,12 @@ def modo_melhorar(t, p):
     #   sidon (padrao) · clearervoice (MossFormer2_SE_48K: so limpa) · clearervoice+sidon (limpa, depois reconstroi)
     # Em todos o slider de reconstrucao continua: seco = ORIGINAL, molhado = o que o motor devolveu.
     motor = str(p.get("motor_melhorar") or "sidon").lower()
+    nv = _nivelador_de(p)
     extra = []
+    if nv != "desligado" and not motor.startswith("clearervoice"):
+        _passo(t, 2, 2, f"nivelando ({nv})…", fracao=0.01)
+        fonte = _nivelar_antes(t, fonte, nv)
+        extra = ["--picos-suaves"]
     if motor.startswith("clearervoice"):
         # no PC do Luan mora em apps\separadores; no pacote do GitHub, em motor\clearervoice (o INSTALAR monta)
         cv_dir = SEPARADORES if PY_SEPNOVO.exists() else MOTOR / "clearervoice"
@@ -619,7 +642,11 @@ def modo_melhorar(t, p):
         limpo = TRAB / f"{t}_clearervoice.wav"
         # 08/11 (ele: «Sim, os dois lados»): o lado ORIGINAL do slider tambem sai com o topo cortado refeito
         declipado = TRAB / f"{t}_original_declipado.wav"
-        roda([cv_py, cv_dir / "rodar_clearervoice_se.py", "-i", fonte, "-o", limpo, "--declipado", declipado])
+        cmd_cv = [cv_py, cv_dir / "rodar_clearervoice_se.py", "-i", fonte, "-o", limpo, "--declipado", declipado]
+        if nv != "desligado":
+            _passo(t, 2, 2, f"nivelando ({nv}) e limpando com o ClearerVoice…", fracao=0.02)
+            cmd_cv += ["--nivelador", nv, "--nivelador-dir", MOTOR]
+        roda(cmd_cv)
         # 08/11 (Kakashi 21:48, «tá dando uns pipocos... adota isso como default aqui pro Clear Voice»): o executor agora
         # devolve FLOAT (sem a volta do int16 do clearvoice) e com o topo cortado da entrada refeito; o pico pode passar
         # de 0 dBFS, e o --picos-suaves segura no nivelar com limitador em vez do loudnorm dinamico.
@@ -2060,8 +2087,13 @@ def modo_melhorar_no_lugar(t, p):
     fonte = _audio_de(t, arquivo)
     _passo(t, 2, 3, "melhorando…", fracao=0.03)
     melhorado = TRAB / f"{t}_melhorado.wav"
+    nv = _nivelador_de(p)
+    extra = []
+    if nv != "desligado":
+        fonte = _nivelar_antes(t, fonte, nv)
+        extra = ["--picos-suaves"]
     _melhora_vendo(t, 2, 3, fonte, melhorado, int(p.get("dose", 100)),
-                   p.get("lufs", -16), base=0.03, peso=0.92)
+                   p.get("lufs", -16), base=0.03, peso=0.92, extra=extra)
     _passo(t, 3, 3, "regravando o arquivo…", fracao=0.96)
     _regrava_no_lugar(t, arquivo, melhorado)
     return arquivo

@@ -41,6 +41,8 @@ $vpy = "$venv\Scripts\python.exe"
 $trava = "$env:TEMP\dubx_trava_sidon.txt"
 Set-Content $trava "torch==2.9.1+cu128`r`ntorchaudio==2.9.1+cu128" -Encoding ascii
 & $vpy -m pip install -r "$BASE\requirements-melhorar.txt" -c $trava -q; Conferir "pacotes do Sidon"
+# 08/11: detector de voz do Nivelador (Silero VAD, MIT, o modelo vem dentro do pacote); --no-deps pra nao mexer no torch
+& $vpy -m pip install --no-deps silero-vad==6.2.3 packaging -q; Conferir "detector de voz do Nivelador (Sidon)"
 & $vpy -c "import torch;assert '+cu' in torch.__version__, 'torch sem CUDA: '+torch.__version__;print('    placa:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NAO ACHEI A NVIDIA (vai ficar lento)')"; Conferir "torch do Sidon com CUDA"
 
 # 4. modelos do Sidon (baixa agora pra primeira vez nao demorar)
@@ -66,6 +68,7 @@ if (Test-Path "$cv\rodar_clearervoice_se.py") {
     $travaCv = "$env:TEMP\dubx_trava_clearervoice.txt"
     Set-Content $travaCv "torch==2.11.0+cu128`r`ntorchaudio==2.11.0+cu128`r`ntorchvision==0.26.0+cu128" -Encoding ascii
     & $cpy -m pip install clearvoice==0.1.2 -c $travaCv -q; Conferir "pacotes do ClearerVoice"
+    & $cpy -m pip install --no-deps silero-vad==6.2.3 -q; Conferir "detector de voz do Nivelador (ClearerVoice)"
     Push-Location $cv
     & $cpy -c "import torch,torchaudio;assert '+cu' in torch.__version__, 'torch sem CUDA: '+torch.__version__;from clearvoice import ClearVoice;ClearVoice(task='speech_enhancement',model_names=['MossFormer2_SE_48K']);print('    ok (torch', torch.__version__+')')"
     $r = $LASTEXITCODE; Pop-Location; $global:LASTEXITCODE = $r; Conferir "ClearerVoice (carregar o modelo)"

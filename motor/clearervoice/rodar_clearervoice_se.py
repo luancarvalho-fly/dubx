@@ -13,8 +13,13 @@ informação desses áudios clipados... melhorando a gente já adota isso como d
    platô na entrada são refeitas pelo modelo AR da voz em volta (Janssen com restrição: passa do teto, mesmo sinal). Medido
    em clipe artificial da voz dele: +18 dB nas amostras refeitas (SPADE +9, spline +10). Só essas amostras mudam.
    A saída pode passar de 1,0 (é float); quem nivela (voz.py --picos-suaves) segura os picos sem estalo.
+3. 08/11 ~23h (ele: «coloca o Levelator na pré-etapa... nivela antes, pra depois passar o Clear Voice... o modelo
+   ignora umas falas que estão muito baixas»): ORDEM NOVA = refaz o topo cortado NA ENTRADA → nivelador (opcional,
+   DUBX\\motor\\nivelador.py, detector de voz Silero) → ClearerVoice em float direto pelo decode (sem arquivo de 16 bits).
+   Teste controlado (fala 22 dB abaixo + ruído de sala): sem nivelador o ClearerVoice APAGOU a fala (−40 dB); com o
+   forte ela ficou (−7,5 dB). `--declipado` = o mesmo áudio antes do modelo (lado original do slider).
 """
-import sys, os, json, argparse, warnings, shutil, uuid
+import sys, os, json, argparse, warnings, shutil
 warnings.filterwarnings("ignore")
 from pathlib import Path
 import numpy as np
@@ -95,50 +100,50 @@ def main():
     ap.add_argument("--declipado", default=None,
                     help="08/11 (ele: «Sim, os dois lados»): grava aqui a ENTRADA com o topo refeito (float) — vira o lado "
                          "original do slider, senão abaixo de 100%% o clipe da gravação volta")
+    ap.add_argument("--nivelador", default="desligado", choices=["desligado", "leve", "forte"],
+                    help="08/11 (ele: «coloca o Levelator na pré-etapa... nivela antes, pra depois passar o Clear Voice»)")
+    ap.add_argument("--nivelador-dir", default=None, help="pasta do nivelador.py (o motor do DUBX)")
     a = ap.parse_args()
 
-    trab = AQUI / "trabalho" / ("se_" + uuid.uuid4().hex[:8]); trab.mkdir(parents=True, exist_ok=True)
-    try:
-        ent = trab / "entrada.wav"
-        shutil.copy2(a.input, ent)
-        info = sf.info(str(ent))
-        cv = ClearVoice(task="speech_enhancement", model_names=["MossFormer2_SE_48K"])
-        out = cv(input_path=str(ent), online_write=False)
-        out = np.asarray(out, dtype=np.float64)
-        canais = info.channels
-        if out.ndim == 1:
-            out = out[:, None]
-        elif out.shape[0] == canais and out.shape[1] != canais:
-            out = out.T                      # o clearvoice devolve (canais, amostras)
-        if out.shape[1] != canais:
-            out = out[:, :1].repeat(canais, axis=1) if out.shape[1] == 1 else out[:, :canais]
-        # o clearvoice reamostra pra 48 kHz por dentro e só voltava à taxa original no write_audio (que não usamos mais)
-        sr = info.samplerate if abs(len(out) - info.frames) <= 1 else 48000
-        refeitos = []
-        if not a.sem_declip:
-            x, srx = sf.read(str(ent), always_2d=True, dtype="float64")
-            if srx == sr and abs(len(x) - len(out)) <= 1:
-                n = min(len(x), len(out)); x = x[:n]; out = out[:n]
-                orig = x.copy()
-                for c in range(canais):
-                    m = platos(x[:, c])
-                    if m.any():
-                        out[:, c], nb = janssen(out[:, c], m)
-                        orig[:, c], _ = janssen(x[:, c], m)
-                        refeitos.append(int(m.sum()))
-                    else:
-                        refeitos.append(0)
-                if a.declipado:
-                    Path(a.declipado).parent.mkdir(parents=True, exist_ok=True)
-                    sf.write(a.declipado, orig, srx, subtype="FLOAT")
-        if a.declipado and not Path(a.declipado).exists():
-            shutil.copy2(a.input, a.declipado)   # sem declip (ou taxa diferente): o lado original fica o próprio arquivo
-        Path(a.output).parent.mkdir(parents=True, exist_ok=True)
-        sf.write(a.output, out, sr, subtype="FLOAT")
-    finally:
-        shutil.rmtree(trab, ignore_errors=True)
+    # ORDEM (08/11, 23h): 1) refaz o topo cortado da gravação  2) nivelador (fala baixa sobe ANTES do modelo, senão o
+    # ClearerVoice trata como ruído e apaga)  3) ClearerVoice em float, direto pelo decode dele (sem arquivo de 16 bits:
+    # o topo refeito passa de 1,0 e nada dá a volta). O lado original do slider = o mesmo áudio dos passos 1+2.
+    x, sr = sf.read(a.input, always_2d=True, dtype="float64")
+    if sr != 48000:                      # o MossFormer2_SE_48K trabalha a 48 kHz (o clearvoice reamostrava por dentro)
+        import librosa
+        x = np.stack([librosa.resample(x[:, c], orig_sr=sr, target_sr=48000) for c in range(x.shape[1])], axis=1)
+        sr = 48000
+    canais = x.shape[1]
+    refeitos = []
+    if not a.sem_declip:
+        for c in range(canais):
+            m = platos(x[:, c])
+            refeitos.append(int(m.sum()))
+            if m.any():
+                x[:, c], _ = janssen(x[:, c], m)
+    nivel = None
+    if a.nivelador != "desligado":
+        sys.path.insert(0, str(a.nivelador_dir or (AQUI.parent / "DUBX" / "motor")))
+        import nivelador as NV
+        g, n, nivel = NV.curva(x, sr, a.nivelador)
+        centros = (np.arange(len(g)) + 0.5) * n
+        x = x * (10 ** (np.interp(np.arange(len(x)), centros, g) / 20.0))[:, None]
+    if a.declipado:
+        Path(a.declipado).parent.mkdir(parents=True, exist_ok=True)
+        sf.write(a.declipado, x, sr, subtype="FLOAT")
+
+    from clearvoice import ClearVoice
+    import torch
+    cv = ClearVoice(task="speech_enhancement", model_names=["MossFormer2_SE_48K"])
+    rede = cv.models[0]
+    rede.data = {"audio": [x[:, c].astype(np.float32).reshape(1, -1) for c in range(canais)], "audio_len": len(x)}
+    with torch.no_grad():
+        out = np.asarray(rede.decode(), dtype=np.float64)       # (canais, amostras), sem normalizar (use_norm=False no SE_48K)
+    out = out.reshape(canais, -1).T[:len(x)]
+    Path(a.output).parent.mkdir(parents=True, exist_ok=True)
+    sf.write(a.output, out, sr, subtype="FLOAT")
     print(json.dumps({"ok": True, "saida": a.output, "pico": round(float(np.abs(out).max()), 4),
-                      "amostras_refeitas": refeitos}), flush=True)
+                      "amostras_refeitas": refeitos, "nivelador": nivel}, ensure_ascii=False), flush=True)
 
 
 if __name__ == "__main__":
